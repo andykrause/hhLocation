@@ -104,9 +104,132 @@ buildAgeLQPlot <- function(xData,                # a plotData object from buildL
   # Add Title  
   ggtitle(titleName) +
   theme(plot.title = element_text(size=20, face="bold"),
-        legend.position = 'none')
+        legend.position = 'none',
+        panel.background =  element_rect(fill = "grey95", colour = NA))
   
   # Return to Function
   return(finalPlot)
 }
+
+### Extracts age data for a specfic age group --------------------------------------------
+
+stripAgeData <- function(lqObj,            # Location Quotient Object from buildLQData
+                         ageFactor         # Which age group (1-8)
+){
+  # Isolate plot data
+  pData <- lqObj$plotData
+  
+  # Convert age names to factors
+  pData$ageFact <- as.numeric(as.factor(pData$HouseholdAge))
+  
+  # Extract specific age group
+  ppData <- subset(pData, ageFact == ageFactor) 
+  
+  # Return Data
+  return(ppData)
+}
+
+### Creates city specific sparklines for a given age cohort ------------------------------
+
+citySparkLines <- function(ageObj,            # Age specific object from StripAgeData()
+                           ncol=1,            # # of columns
+                           mPar=list(top=.125,
+                                     bottom=.125,
+                                     left=.1,
+                                     right=.1,
+                                     name=.2),  # Plot margin parameters
+                           smoothLQs = TRUE,    # Use smoothed lines?
+                           textSize=8,          # Size of annotation text
+                           lineWidth=1.5,       # Size of spark line width
+                           lineColor='black',   # Sparkline color
+                           plotTitle = ''       # Plot Title
+                           ){
+  
+  ## Calculate rows ,columns
+  modu <- length(ageObj) %% ncol
+  nrow <- length(ageObj) %/% ncol + ifelse(modu > 0, 1, 0)
+  rMinus <- (nrow * ncol) - length(ageObj)
+  
+  offsets <- data.frame(X = sort(rep((ncol-1) :0, nrow)),
+                        Y = rep((nrow-1) :0, ncol))
+  if(modu > 0) offsets <- offsets[-((nrow(offsets)-rMinus+1):nrow(offsets)),]
+  
+  offsetList <- list()
+  for(i in 1:nrow(offsets)){offsetList[[i]] <- offsets[i,]}
+  
+  ## Create scaled X,Ys
+  xyScaled <- lapply(ageObj, scaleLocs, mPar=mPar)
+  
+  ## Located X,Ys
+  xyLocated <- mapply(placeLocs, scaleData=xyScaled, offsets=offsetList,
+                      MoreArgs=list(mPar=mPar)) 
+  
+  if(smoothLQs) xyLocated <- lapply(lapply(xyLocated, lowess, f=.2), as.data.frame)
+  
+  ## Build initial plot
+  c4 <- data.frame(X=c(0, ncol, 0, ncol),
+                   Y=c(0, 0, nrow, nrow))
+  blankPlot <- ggplot(c4, aes(x=X,y=Y)) + geom_point(color='white')
+  
+  ## Add Lines
+  
+  for(i in 1: length(ageObj)){
+    blankPlot <-  blankPlot + geom_line(data=xyLocated[[i]], aes(x=x, y=y), size=lineWidth,
+                                        color=lineColor)  
+  }
+  
+  ## Add City Names
+  
+  for(i in 1:length(ageObj)){
+    blankPlot <-  blankPlot + annotate("text", 
+                                       x = offsets$X[i] + mPar$left,
+                                       y = offsets$Y[i] + .5,
+                                       label = substr(names(ageObj)[[i]],1,3),
+                                       size=textSize) 
+  }
+  
+  ## Clean up for output
+  
+  finalPlot <- blankPlot + theme(
+    axis.text.x=element_blank(),
+    axis.text.y=element_blank(),
+    axis.ticks=element_blank(),
+    axis.title.x=element_blank(),
+    axis.title.y=element_blank(),
+    plot.title = element_text(size=20, face="bold"),
+    panel.background =  element_rect(fill = "grey95", colour = NA))
+  
+  ## Add Title
+  
+  finalPlot <- finalPlot + ggtitle(plotTitle)
+  
+  ## Return Values
+  return(finalPlot)
+  
+}
+
+### Helper function that scales the individual lines to fix inside the 'box' -------------
+
+scaleLocs <- function(xyData, mPar){
+  xAdj <- 1 - mPar$left - mPar$right - mPar$name
+  yAdj <- 1 - mPar$top - mPar$bottom
+  xScaled <- xyData$tX / max(xyData$tX)
+  yScaled <- xyData$y / max(xyData$y)
+  xy <- data.frame(x = xScaled * xAdj,
+                   y = yScaled * yAdj)
+  return(xy)
+}
+
+### Helper function that locates each of the spark lines on the larger plot --------------
+
+placeLocs <- function(scaleData, offsets, mPar){
+  xPlaced <- scaleData$x + mPar$left + mPar$name + offsets$X
+  yPlaced <- scaleData$y + mPar$bottom + offsets$Y
+  xy <- data.frame(x = xPlaced,
+                   y = yPlaced)
+  return(list(xy))
+}
+
+
+
 
