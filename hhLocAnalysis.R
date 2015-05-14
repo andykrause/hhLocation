@@ -51,8 +51,9 @@
 
  ## Build data and plots
 
-  allData <- buildLQData(xData, metroName='All', logScale=5/9)
-  allPlot <- buildAgeLQPlot(allData$plotData, title='All Metros', colorByAge=F)
+  allData <- buildLQData(xData, metroName='All', logScale=5/9, smoothLines=FALSE)
+  allPlot <- buildAgeLQPlot(allData$plotData, title='All Metros', colorByAge=F,
+                            addSmoothing=FALSE)
 
  ## Export Plots
   
@@ -103,15 +104,36 @@
                    plotTitle = 'Households Ages 15 - 24')
   dev.off(which=dev.cur())
 
-
- ## Extract age specific data 15-24
-
-  # Age 15-24
-  age55Data <- lapply(metroData, stripAgeData, ageFactor=5)
-  names(age55Data) <- metroNames
+  # Age 75-24
+  age75Data <- lapply(metroData, stripAgeData, ageFactor=7)
+  names(age75Data) <- metroNames
 
   # Plot 
-  jpeg(paste0(homePath, "/graphs/Age55_64.jpg"), res=400, width=2500, height=3500)
-    citySparkLines(age55Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
-                   plotTitle = 'Households Ages 55 - 64')
+  jpeg(paste0(homePath, "/graphs/Age175_84.jpg"), res=400, width=2500, height=3500)
+    citySparkLines(age75Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
+               plotTitle = 'Households Ages 75 - 84')
   dev.off(which=dev.cur())
+
+ ## Extract age specific data 85+
+
+  # Age 85+
+  age85Data <- lapply(metroData, stripAgeData, ageFactor=8)
+  names(age85Data) <- metroNames
+
+  # Plot 
+  jpeg(paste0(homePath, "/graphs/Age85+.jpg"), res=400, width=2500, height=3500)
+    citySparkLines(age85Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
+                   plotTitle = 'Households Ages 85+')
+  dev.off(which=dev.cur())
+
+
+### Overlapping SEs
+
+  d1 <- allData$plotData
+  overlap <- ggplot(d1, aes(x=x,y=y, color=HouseholdAge)) + geom_line(size=1) + stat_smooth()
+  jpeg(paste0(homePath, "/graphs/overlap.jpg"), res=400, width=6500, height=3500)
+    overlap    
+  dev.off(which=dev.cur())  
+
+
+
