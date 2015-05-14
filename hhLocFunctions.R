@@ -29,7 +29,9 @@
 
 buildLQData <- function(yData,             # Data.frame of all data
                         metroName='All',   # Name of Metro Area
-                        logScale=1         # Amount to scale X axis by
+                        logScale=1,        # Amount to scale X axis by
+                        smoothLines=TRUE,  # Should lines be smoothed?
+                        smoothFactor=.1    # Smoothing factor (0 to 1)
                         ){
   
   # Select out specific data
@@ -46,7 +48,15 @@ buildLQData <- function(yData,             # Data.frame of all data
   locQs <- lapply(pNames, distLQ, xData=mData, field2='TotHHLD', xLocation='distNorm')
   
   # Build lines
-  lqLines <- lapply(locQs, lowess, f=sFactor)
+  if(smoothLines){
+     lqLines <- lapply(locQs, lowess, f=smoothFactor)
+  } else {
+     lqLines <- locQs
+     for(lql in 1:length(locQs)){
+       lqLines[[lql]] <- list(x=1:length(locQs[[lql]]),
+                              y=as.numeric(locQs[[lql]]))
+     }
+  }
   
   # Set up as logaritmic type scale
   Xs <- (1:length(locQs[[1]])) ^ (logScale)
@@ -74,7 +84,8 @@ buildLQData <- function(yData,             # Data.frame of all data
 
 buildAgeLQPlot <- function(xData,                # a plotData object from buildLQData
                            titleName="",         # Title of the plot
-                           colorByAge=FALSE      # Color the lines by age group?
+                           colorByAge=FALSE,     # Color the lines by age group?
+                           addSmoothing=TRUE     # Add SE and Smoothed Line?
                            ){
   
   # Create Base Plot
@@ -86,13 +97,12 @@ buildAgeLQPlot <- function(xData,                # a plotData object from buildL
   
   # Create Base Plot
   basePlot <- ggplot(xData, aes(x=tX,y=y, color=hhColor)) +
+  geom_line(size=1)
     
-  
   # Add Lines
-  geom_line() + 
-    
-  # Add Smoothing Line  
-  stat_smooth(level=.9999, size=1)
+  if(addSmoothing){
+    basePlot <- basePlot + stat_smooth(level=.9999, size=.8)
+  }
   
   # Create 4x2 facets
   finalPlot <- basePlot + facet_wrap(~HouseholdAge, ncol=2) +
