@@ -2,7 +2,7 @@
 ### MAIN FUNCTION USE EXAMPLE ###
 if(F){
   dPath <- 'd:/data/usa'
-  buildSF1Data(dPath, 'Delaware', 'DE')
+  buildSF1Data(dPath, 'Washington', 'WA')
   
   getMSACodes(dPath)
 }
@@ -226,9 +226,18 @@ getMSACodes <- function(mainDir,                 # Main directory for all census
     
     ## Read in CBSA codes
     
+    # Read in
     cbsa <- read.csv(dlPath, header=F, stringsAsFactors=FALSE)
-    cbsa <- cbsa[-c(1:6, 980:985), 1:5]
-    names(cbsa) <- c('code', 'subcode','name', 'state', 'pop2010')
+    
+    # Remove excess rows and columns
+    cbsa <- cbsa[-c(1:6, 980:985), 1:4]
+    names(cbsa) <- c('code', 'subcode','name', 'pop2010')
+    
+    # Separate City and State
+    commaLoc <- str_locate(cbsa$name, ',')
+    cbsa$city <- substr(cbsa$name, 1, commaLoc[, 1] - 1)
+    cbsa$ST <- substr(cbsa$name, commaLoc[, 1] + 1, 100)
+    cbsa$name <- NULL
     
     ## Write file back out
     
