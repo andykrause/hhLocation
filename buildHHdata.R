@@ -241,7 +241,7 @@ getMSACodes <- function(mainDir,                 # Main directory for all census
     
     ## Write file back out
     
-    write.csv(cbsa, dlPath)
+    write.csv(cbsa, dlPath, row.names=F)
     if(verbose) cat('CBSA codes clean and written out to.', dlPath, '\n')
     
   } else {
