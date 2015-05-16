@@ -251,5 +251,92 @@ getMSACodes <- function(mainDir,                 # Main directory for all census
   }
 } # closes function
 
+### Match the city list to its corresponding MSA codes -----------------------------------
+
+matchCityCBSA <- function(iCity,            # Individual City names
+                          cbsaData          # Full CBSA data object
+){
+  
+  ## Match based on City Name
+  
+  cityLoc <- as.data.frame(str_locate(cbsaData$city, iCity$City))
+  cityMatch <- which(!is.na(cityLoc$start))
+  
+  ## Generate Codes
+  
+  # If no city name match
+  if(length(cityMatch) == 0){
+    cityCode <- 'No Matching City'
+    stateNames <- NA
+  }
+  
+  # If only one city name match
+  if(length(cityMatch) == 1){
+    cityCode <- cbsaData$code[cityMatch]
+    stateNames <- cbsaData$ST[cityMatch]
+  }
+  
+  # If more than one city name match
+  if(length(cityMatch) > 1){
+    
+    # Multiple states found
+    stateLoc <- as.data.frame(str_locate(cbsaData$ST, iCity$ST))
+    stateMatch <- which(!is.na(stateLoc$start))
+    cityStateMatch <- cityMatch[cityMatch %in% stateMatch]
+    
+    # If one state matches
+    if(length(cityStateMatch) == 1){
+      cityCode <- cbsaData$code[cityStateMatch]
+      stateNames <- cbsaData$ST[cityStateMatch]
+    } else {
+      
+      # If duplicate is a sub-MSA
+      if(length(table(cbsaData$code[cityStateMatch])) == 1){
+        cityCode <- cbsaData$code[cityStateMatch[1]]
+        stateNames <- cbsaData$ST[cityStateMatch[1]]
+      } else {  
+        
+        # If no states match
+        cityCode <- 'Invalid City State Combination'
+        stateNames <- NA
+      }
+    }
+  } # closes if(length(cityMatch) > 1) condition
+  
+  ## Return city code
+  
+  return(data.frame(cbsaCode = cityCode,
+                    stateNames = stateNames))
+} 
+
+### Build a list of all states from which data is needed due to cityList -----------------
+
+makeDataStates <- function(stObj            # A state code from the cbsaCodes obj
+){
+  
+  # Set up blank object
+  iST <- NULL
+  
+  # Remove any spaces
+  stObj <- str_replace_all(stObj, " ", "")
+  
+  # Find '-'s indicates multi-state CBSA
+  dashLoc <- as.data.frame(str_locate_all(stObj, "-"))$start
+  
+  # If single state CBSA
+  if(length(dashLoc) == 0){
+    iST <- stObj
+    
+    # If Multistate CSBA, then pull apart object  
+  } else {
+    dashLoc <- c(1, dashLoc)
+    for(i in 1:(length(dashLoc) - 1)){
+      iST <- c(iST, str_replace_all(substr(stObj, dashLoc[i], dashLoc[i + 1]), "-", ""))
+    }
+  }
+  
+  ## Return object  
+  return(iST)
+}
 
 
