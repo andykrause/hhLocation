@@ -1,10 +1,29 @@
 
 ### MAIN FUNCTION USE EXAMPLE ###
+
 if(F){
-  dPath <- 'd:/data/usa'
-  buildSF1Data(dPath, 'Washington', 'WA')
   
-  getMSACodes(dPath)
+  # Set parameters
+  dataDir <- 'd:/data/usa'
+  codeDir <- 'c:/Dropbox/Research/PopDistPaper2/Code/hhLocation'
+  cityListPath <- 'C:/Dropbox/Research/PopDistPaper2/Code/hhLocation/cityxylist.csv'
+  outputPath <- 'c:/temp/cleandataexample.csv'
+
+  # Source Files
+  source(paste0(codeDir, '/buildHHData.R'))
+  
+  # Load Libraries
+  library(plyr)
+  library(dplyr)
+  library(stringr)
+  
+  # Set up list of cities to build data for  
+  cityList <- read.csv(cityListPath, stringsAsFactors=FALSE) 
+  quickTest <- cityList[c(15, 44, 50), ]  # Select Seattle, Richmond and Salt Lake City 
+  
+  # Create Data
+  createHHLocData(dataDir, codeDir, quickTest, outputPath=outputPath)
+  
 }
 
 ### Build the necessary data (geo and P22) for HH x Age analysis -------------------------
@@ -483,7 +502,7 @@ loadCBSAInfo <- function(mainDir,                 # Main directory
 createHHLocData <- function(mainDir,                    # Main directory
                             codeDir,                    # Directory where code is
                             cityList,                   # list of cities to analyze
-                            outputDir,                  # where to output clean data
+                            outputPath,                 # where to output clean data
                             verbose=TRUE                # Provide status updates
 ){
   
@@ -505,12 +524,12 @@ createHHLocData <- function(mainDir,                    # Main directory
   dataList <- split(dataList, as.character(dataList$cbsa))
   
   # Calc distances to each center (what to do about multiples?)
-  dataList <- lapply(dataList, distCalc, cityList=quickTest,
+  dataList <- lapply(dataList, hhDistCalc, cityList=quickTest,
                      cbsaCodes=cbsaCodes)
   
   # Write out as clean, final data
   cleanData <- rbind.fill(dataList)
-  write.csv(cleanData, paste0(outputDir, '/cleantest.csv'), row.names=F)
+  write.csv(cleanData, outputPath, row.names=F)
   
   
 }
