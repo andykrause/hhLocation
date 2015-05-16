@@ -372,6 +372,9 @@ confirmRawData <- function(cityList,                # List of cities to analyze
   # Develop the cbsa codes
   cbsaCodes <- rbind.fill(lapply(cityListX, matchCityCBSA, cbsaData=cbsaList))
   
+  # Send this list to the global environment
+  assign("cbsaCodes", cbsaCodes, envir = .GlobalEnv)
+  
   # Create a list of all states from which we'll need data
   dataStates <- sort(unique(unlist(lapply(cbsaCodes$stateNames, makeDataStates))))
   
@@ -473,6 +476,116 @@ loadCBSAInfo <- function(mainDir,                 # Main directory
   
   return(cbsa)
 }
+
+### MASTERFUNCTION #######################################################################
+### Function that controls all aspects of building the HH Data ---------------------------
+
+createHHLocData <- function(mainDir,                    # Main directory
+                            codeDir,                    # Directory where code is
+                            cityList,                   # list of cities to analyze
+                            outputDir,                  # where to output clean data
+                            verbose=TRUE                # Provide status updates
+){
+  
+  # Get all raw data set
+  confirmRawData(cityList, mainDir, codeDir, verbose=TRUE)
+  
+  # Read in all state data
+  dataList <- list()
+  
+  dataList <- lapply(as.list(listOfStates), 
+                     mergeGeoP22, 
+                     cbsaCodes=cbsaCodes, 
+                     mainDir=mainDir)
+  
+  # Merge all data
+  dataList <- rbind.fill(dataList)
+  
+  # Separate by CBSA code
+  dataList <- split(dataList, as.character(dataList$cbsa))
+  
+  # Calc distances to each center (what to do about multiples?)
+  dataList <- lapply(dataList, distCalc, cityList=quickTest,
+                     cbsaCodes=cbsaCodes)
+  
+  # Write out as clean, final data
+  cleanData <- rbind.fill(dataList)
+  write.csv(cleanData, paste0(outputDir, '/cleantest.csv'), row.names=F)
+  
+  
+}
+##########################################################################################
+
+### Trims to block level geographies, merges GEO and P22 Data ----------------------------
+
+mergeGeoP22 <- function(iState,              # 2 letter state abbreviation code
+                        cbsaCodes,           # Full list of cbsaCodes
+                        mainDir              # Main directory
+){
+  
+  # Force to lower
+  iState <- tolower(iState)
+  
+  # Read in Geo Data  
+  geoData <- read.csv(paste0(mainDir, '/', iState, '/census/2010/sf1/geo.csv'),
+                      header=T)
+  
+  # Read in household data
+  hhData <- read.csv(paste0(mainDir, '/', iState, '/census/2010/sf1/p22Data.csv'),
+                     header=T)  
+  
+  # Match all CBSA codes in that state
+  stateMatch <- as.data.frame(str_locate(cbsaCodes$stateNames, 
+                                         toupper(iState)))$start
+  cbsaList <- cbsaCodes$cbsaCode[which(!is.na(stateMatch))]
+  
+  ## Limit Geo list
+  
+  # By block level only
+  blockGeos <- subset(geoData, geoLevel == '101')
+  
+  # By CBSA 
+  blockGeos <- subset(blockGeos, cbsa != "")
+  blockGeos <- subset(blockGeos, cbsa %in% cbsaList)
+  
+  ## Join to HH Data
+  
+  # Convert sfID to numeric
+  blockGeos$sfID <- as.numeric(blockGeos$sfID)
+  blockHHData <- merge(blockGeos, hhData, by='sfID')
+  
+  ## Return
+  return(blockHHData)
+  
+}
+
+### Calculated distances for each CBSA data group ----------------------------------------
+
+hhDistCalc <- function(dataObj,               # A DF of data for one CBSA
+                       cityList,              # Full list of cities
+                       cbsaCodes              # Full List of CBSA Codes
+){
+  
+  # Ensure that city names are in lower case
+  names(cityList) <- tolower(names(cityList))
+  
+  # Grab city which matches the dataObj
+  iC <- which(cbsaCodes$cbsaCode == dataObj$cbsa[1])
+  iCity <- cityList[iC[1], ]
+  
+  # Calculate distances (in Miles)
+  dists <- sqrt(((dataObj$lat - iCity$lat)^2) + ((dataObj$long) - iCity$long)^2)*69
+  
+  # Add Distances and city name to dataObj
+  dataObj$dists <- dists
+  dataObj$cityName <- iCity$city
+  
+  # Return data Obj
+  return(dataObj)
+  
+}
+
+
 
 
 
