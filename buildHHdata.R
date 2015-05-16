@@ -340,3 +340,134 @@ makeDataStates <- function(stObj            # A state code from the cbsaCodes ob
 }
 
 
+### confirms all raw census data in in place, if not it gets it --------------------------
+
+confirmRawData <- function(cityList,                # List of cities to analyze
+                           mainDir,                 # Main directory location
+                           codeDir,                 # Location of code
+                           verbose=TRUE             # Show helpful commments?
+){
+  
+  require(stringr)
+  require(plyr)
+  require(dplyr)
+  
+  ## Find the states that are needed
+  
+  # Read in State List
+  stateList <- read.csv(paste0(codeDir, '/stateList.csv'), stringsAsFactors=FALSE)
+  
+  # Read in CBSA List
+  cbsaList <- loadCBSAInfo(mainDir)
+  
+  # Turn city DF into a row-wise list for lapply()
+  cityListX <- list()
+  for(i in 1:nrow(cityList)){cityListX[[i]] <- cityList[i,]}
+  
+  # Develop the cbsa codes
+  cbsaCodes <- rbind.fill(lapply(cityListX, matchCityCBSA, cbsaData=cbsaList))
+  
+  # Create a list of all states from which we'll need data
+  dataStates <- sort(unique(unlist(lapply(cbsaCodes$stateNames, makeDataStates))))
+  
+  ## Check to see which data is missing  
+  
+  # convert to lower
+  dataStates <- tolower(dataStates)
+  
+  # Send this list to the global environment
+  assign("listOfStates", dataStates, envir = .GlobalEnv)
+  
+  # check if data exists
+  dataStatus <- unlist(lapply(as.list(dataStates), checkStateData, mainDir=mainDir))
+  missingData <- dataStates[which(!dataStatus)]
+  cat(missingMessage(missingData, stateList))  
+  
+  ## Get remainder of missing data
+  
+  if(length(missingData) >= 1){
+    for(mD in 1:length(missingData)){
+      
+      # Find out full state name
+      mdState <- stateList$state[which(stateList$stateAbbr == toupper(missingData[mD]))]
+      if(verbose) cat("Gathering data for", mdState)
+      
+      # Get Data
+      buildSF1Data(mainDir=mainDir, state=mdState, missingData[mD])
+    }
+  }
+  
+  ## Give notice
+  
+  if(verbose) cat('\n\n***Data acquisition complete.***\n\n')
+  
+}   
+
+### Checks to see which of the data are present, return list of missing ------------------
+
+checkStateData <- function(iState,                # State abbrev to check for data
+                           mainDir                # Main directory
+){
+  
+  # Set initial Condition
+  dataPresent <- TRUE
+  
+  # Test for geo data
+  if(!file.exists(paste0(mainDir, '/', iState, '/census/2010/sf1/geo.csv'))){
+    dataPresent <- FALSE
+  }
+  
+  # Test for P22Data
+  if(!file.exists(paste0(mainDir, '/', iState, '/census/2010/sf1/p22Data.csv'))){
+    dataPresent <- FALSE
+  }
+  
+  # Return finding
+  return(dataPresent)
+}  
+
+### Produces message giving state of data acquisition needs ------------------------------
+
+missingMessage <- function(missingData,           # Vector of states with missing data
+                           stateList              # Full list of states and abbrevs
+){
+  
+  # Build Message
+  if(length(missingData) > 0){
+    mdMessage <- "Data is missing from: "
+    for(i in 1:length(missingData)){
+      if(i != length(missingData)){
+        mdMessage <- paste0(mdMessage, 
+                            stateList$state[which(stateList$stateAbbr == 
+                                                    toupper(missingData[i]))], ', ')
+      } else {
+        mdMessage <- paste0(mdMessage, 'and ', 
+                            stateList$state[which(stateList$stateAbbr == 
+                                                    toupper(missingData[i]))])
+      }
+    }
+    
+    mdMessage <- paste0(mdMessage, '\n\n***Missing data will be acquired now.',
+                        'This may take awhile.***\n')
+  } else {
+    mdMessage <- "All data is present and analysis can proceed"
+  }
+  
+  # Return message
+  return(mdMessage)
+}   
+
+### Loads in the CBSA data and codes -----------------------------------------------------
+
+loadCBSAInfo <- function(mainDir,                 # Main directory
+                         verbose=TRUE             # Give progress?
+){
+  cbsaPath <- paste0(mainDir, '/censusinfo/cbsainfo/cbsacodes.csv')
+  cbsa <- read.csv(cbsaPath)
+  if(verbose) cat('CBSA codes loaded.\n')
+  
+  return(cbsa)
+}
+
+
+
