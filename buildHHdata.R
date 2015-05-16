@@ -3,6 +3,8 @@
 if(F){
   dPath <- 'd:/data/usa'
   buildSF1Data(dPath, 'Delaware', 'DE')
+  
+  getMSACodes(dPath)
 }
 
 ### Build the necessary data (geo and P22) for HH x Age analysis -------------------------
@@ -71,12 +73,12 @@ buildSF1Data <- function(mainDir,                # Base directory to build state
 
 ### Builds dir structure, downloads and unpacks necessary sf1 data for HHAge analysis
 
-downloadSF1 <- function(mainDir,           # Main directory destination 
-                        state,             # full state name
-                        stAbbr,            # 2 letter state abbr
-                        verbose=TRUE,      # Show messages?
-                        cleanUp=TRUE       # Remove .zip after extraction
-){
+downloadSF1 <- function(mainDir,                 # Main directory destination 
+                        state,                   # full state name
+                        stAbbr,                  # 2 letter state abbr
+                        verbose=TRUE,            # Show messages?
+                        cleanUp=TRUE             # Remove .zip after extraction
+                        ){
  
  ## Set up locations
   
@@ -125,12 +127,12 @@ downloadSF1 <- function(mainDir,           # Main directory destination
     file.remove(destPath)
     if(verbose) cat(state, 'zip file successfully deleted.\n')    
   }
-}
+} # closes function
 
 ### Extracts necessary geographic identifiers from geo data + writes to file -------------
 
-extractGeoData <- function(fileDir,           # Directory where geodata will live
-                           stAbbr             # 2 letter state abbreviation
+extractGeoData <- function(fileDir,              # Directory where geodata will live
+                           stAbbr                # 2 letter state abbreviation
                            ){
   
   ## Read in Raw data  
@@ -165,11 +167,12 @@ extractGeoData <- function(fileDir,           # Directory where geodata will liv
   
   return(geoOut)
   
-} # Closes function
+} # closes function
 
+### Extracts necessary hh x age (P22) data + writes to file ------------------------------
 
-extractHHData <- function(fileDir,            # Directory where p22data will live
-                          stAbbr              # 2 letter state abbreviation
+extractHHData <- function(fileDir,               # Directory where p22data will live
+                          stAbbr                 # 2 letter state abbreviation
                           ){ 
   
   ## Read in raw data
@@ -195,3 +198,49 @@ extractHHData <- function(fileDir,            # Directory where p22data will liv
   return(hhData)
   
 } # closes function
+
+### Builds and cleans CBSA code file from census -----------------------------------------
+
+getMSACodes <- function(mainDir,                 # Main directory for all census data
+                        verbose=TRUE             # Provide status reports?
+                        ){
+  
+  ## Create Dir if not there
+  censPath <- paste0(mainDir, '/censusInfo')
+  dir.create(censPath, showWarnings = FALSE)
+  cbsaPath <- paste0(censPath, '/cbsaInfo')
+  dir.create(cbsaPath, showWarnings = FALSE)
+  
+  # Create file location
+  dlPath <- paste0(cbsaPath, '/cbsacodes.csv')
+  
+  if(!file.exists(dlPath)){
+    
+    ## Download File
+    
+    downPath <- paste0('https://www.census.gov/popest/data/metro/totals/2011/tables/',
+                       'CBSA-EST2011-01.csv')
+    
+    download.file(url=downPath, destfile=dlPath)
+    if(verbose) cat('CBSA codes successfully downloaded.\n')
+    
+    ## Read in CBSA codes
+    
+    cbsa <- read.csv(dlPath, header=F, stringsAsFactors=FALSE)
+    cbsa <- cbsa[-c(1:6, 980:985), 1:5]
+    names(cbsa) <- c('code', 'subcode','name', 'state', 'pop2010')
+    
+    ## Write file back out
+    
+    write.csv(cbsa, dlPath)
+    if(verbose) cat('CBSA codes clean and written out to.', dlPath, '\n')
+    
+  } else {
+    
+    if(verbose) cat('CBSA file already exists.\n')
+    
+  }
+} # closes function
+
+
+
