@@ -189,13 +189,18 @@ extractHHData <- function(fileDir,               # Directory where p22data will 
   hhFinalData <- hhData[ ,1:11]
   hhFinalData[ ,2:11] <- hhData[ ,2:11] + hhData[ ,12:21] 
   
+   # Deal with 55-59/60-64 issues
+  hhExtra <- hhFinalData[,7] + hhFinalData[,8]
+  hhFinalData[,7] <- hhExtra
+  hhFinalData <- hhFinalData[,-8]
+  
   ## Rename fields
   
-  names(hhData) <- c('sfID', 'hh1524','hh2534','hh3544','hh4554','hh5564',
+  names(hhFinalData) <- c('sfID', 'hhSum','hh1524','hh2534','hh3544','hh4554','hh5564',
                      'hh6574','hh7584','hh85p')
   ## Return data
   
-  return(hhData)
+  return(hhFinalData)
   
 } # closes function
 
