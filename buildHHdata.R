@@ -621,7 +621,8 @@ hhDistCalc <- function(dataObj,               # A DF of data for one CBSA
     iCity <- cityList[iC[1], ]
   
     # Calculate distances (in Miles)
-    dists <- sqrt(((dataObj$lat - iCity$lat)^2) + ((dataObj$long) - iCity$long)^2)*69
+    dists <- distHaversine(p1=cbind(dataObj$long, dataObj$lat), 
+                           p2=c(iCity$long, iCity$lat))/1600
   
     # Add Distances and city name to dataObj
     dataObj$dists <- dists
@@ -637,8 +638,8 @@ hhDistCalc <- function(dataObj,               # A DF of data for one CBSA
     # Calc all distances
     for(dM in 1:length(iC)){
       iCity <- cityList[iC[dM],]
-      distMatrix[,dM] <- dists <- sqrt(((dataObj$lat - iCity$lat)^2) + 
-                                     ((dataObj$long) - iCity$long)^2)*69
+      distMatrix[,dM] <- distHaversine(p1=cbind(dataObj$long, dataObj$lat), 
+                                       p2=c(iCity$long, iCity$lat))/1600
       
     }
     distMatrix <- as.data.frame(distMatrix)
