@@ -1,5 +1,5 @@
 
-### MAIN FUNCTION USE EXAMPLE ###
+### FUNCTION USE EXAMPLE ###
 
 if(F){
   
@@ -16,42 +16,378 @@ if(F){
   library(plyr)
   library(dplyr)
   library(stringr)
+  library(geosphere)
   
   # Set up list of cities to build data for  
   cityList <- read.csv(cityListPath, stringsAsFactors=FALSE) 
-  quickTest <- cityList[c(15, 44, 50), ]  # Select Seattle, Richmond and Salt Lake City 
+  quickTest <- cityList[c(51, 57:60, 65, 66), ]  # Select Seattle, Richmond and Salt Lake City 
   
   # Create Data
-  createHHLocData(dataDir, codeDir, quickTest, outputPath=outputPath)
+  createHHLocData(cityList=quickTest, dataDir=dataDir,
+                  codeDir=codeDir, outputPath=outputPath, fullClean=TRUE)
   
 }
 
-### Build the necessary data (geo and P22) for HH x Age analysis -------------------------
+### MASTERFUNCTION #######################################################################
 
-buildSF1Data <- function(mainDir,                # Base directory to build state data in
-                         state,                  # Full state name (capitalized 1st let.)
-                         stAbbr,                 # 2 letter state abbrev.
-                         verbose=TRUE,           # Show comments and completion notices?
-                         fullClean=FALSE         # Delete ZIP file after use?
-){
+### Function that controls all aspects of building the HH Data ---------------------------
+
+createHHLocData <- function(cityList,                   # List of cities to analyze
+                            dataDir,                    # Main directory
+                            codeDir,                    # Directory where code is
+                            outputPath,                 # where to output clean data
+                            verbose=TRUE,               # Provide status updates
+                            fullClean=TRUE              # Remove ZIPs after use
+                            ){
+ 
+ ## Set libraries
   
   require(stringr)
+  require(plyr)
+  require(dplyr)
+  require(geosphere)
   
-  ## Obtain raw data
+ ## Set global variables
+  
+  gv <- list(dataDir=dataDir,
+             codeDir=codeDir,
+             verbose=verbose,
+             fullClean=fullClean)
+  assign('gv', gv, envir = .GlobalEnv)
+  
+ ## Confirm that necessary raw data is present, if not acquire it
+  
+  confirmRawData(cityList)
+  
+  # Read in all state data
+  dataList <- list()
+  if(verbose) cat('\nMerging Geographic data to P22 data......')
+  dataList <- lapply(as.list(dataStates), 
+                     mergeGeoP22, 
+                     cbsaList=cbsaList)
+ 
+  # Merge all data
+  dataList <- rbind.fill(dataList)
+  if(verbose) cat('\nCombining merged data into single data frame.....')
+  
+  # Separate by CBSA code
+  dataList <- split(dataList, as.character(dataList$cbsa))
+  
+  # Calc distances to each center (what to do about multiples?)
+  if(verbose) cat('\nCalculating Distances to Center Points...')
+  dataList <- lapply(dataList, hhDistCalc, 
+                     cityList=cityList, cbsaList=cbsaList)
+ 
+  # Write out as clean, final data
+  cleanData <- rbind.fill(dataList)
+  write.csv(cleanData, outputPath, row.names=F)
+  if(verbose) cat('\nPrepared data written to', outputPath)
+ 
+}
+
+### confirms all raw census data in in place, if not it gets it --------------------------
+
+confirmRawData <- function(cityList,                # List of cities to analyze
+                           dataDir=gv$dataDir,      # Location of data
+                           codeDir=gv$codeDir,      # Location of code
+                           verbose=gv$verbose       # Show helpful commments?
+                           ){
+    
+ ## Find the states that are needed
+  
+  # Read in State List
+  stateList <- read.csv(paste0(codeDir, '/stateList.csv'), stringsAsFactors=FALSE)
+  
+  # Send this list to the global environment
+  assign("stateList", stateList, envir = .GlobalEnv)
+    
+  # Read in CBSA List
+  loadCBSACodes()
+  
+  # Turn city DF into a row-wise list for lapply()
+  cityListX <- list()
+  for(i in 1:nrow(cityList)){cityListX[[i]] <- cityList[i, ]}
+  
+  # Develop the cbsa codes
+  cbsaList <- rbind.fill(lapply(cityListX, matchCityCBSA, cbsaCodes=cbsaCodes))
+  
+  # Send this list to the global environment
+  assign("cbsaList", cbsaList, envir = .GlobalEnv)
+  
+  # Create a list of all states from which we'll need data
+  dataStates <- sort(unique(unlist(lapply(cbsaList$stateNames, buildDataStates))))
+  if(verbose) cat('\nDeveloping list of states...Checking for raw data')
+
+ ## Check to see which data is missing   
+  
+  # convert to lower
+  dataStates <- tolower(dataStates)
+  
+  # Send this list to the global environment
+  assign("dataStates", dataStates, envir = .GlobalEnv)
+  
+  # check if data exists
+  dataStatus <- unlist(lapply(as.list(dataStates), checkStateData))
+  missingData <- dataStates[which(!dataStatus)]
+  cat(missingMessage(missingData))  
+  
+  ## Get remainder of missing data
+  
+  if(length(missingData) >= 1){
+    for(mD in 1:length(missingData)){
+      
+      # Find out full state name
+      mdState <- stateList$state[which(stateList$stateAbbr == toupper(missingData[mD]))]
+      if(verbose) cat("Gathering data for", mdState)
+      
+      # Get Data
+      buildSF1Data(state=mdState, stAbbr=missingData[mD])
+    }
+  }
+  
+  ## Give notice
+  
+  if(verbose) cat('\n\n***Data acquisition complete.***\n\n')
+  
+}   
+
+### Loads in the CBSA data and codes -----------------------------------------------------
+
+loadCBSACodes <- function(dataDir=gv$dataDir,      # Main data directory
+                          verbose=gv$verbose       # Give progress?
+                          ){
+  
+  # Check to see if raw data exists
+  fetchCBSACodes()
+  
+  # Load data into memory
+  cbsaPath <- paste0(dataDir, '/censusinfo/cbsainfo/cbsacodes.csv')
+  cbsa <- read.csv(cbsaPath)
+  if(verbose) cat('CBSA codes loaded.\n')
+  
+  # Send this list to the global environment
+  assign("cbsaCodes", cbsa, envir = .GlobalEnv)
+
+}
+
+### Builds and cleans CBSA code file from census -----------------------------------------
+
+fetchCBSACodes <- function(dataDir=gv$dataDir,       # Main directory for all census data
+                           verbose=gv$verbose        # Provide status reports?
+                           ){
+  
+  ## Create Dir if not there
+  
+  censPath <- paste0(dataDir, '/censusInfo')
+  dir.create(censPath, showWarnings = FALSE)
+  cbsaPath <- paste0(censPath, '/cbsaInfo')
+  dir.create(cbsaPath, showWarnings = FALSE)
+  
+  # Create file location
+  dlPath <- paste0(cbsaPath, '/cbsacodes.csv')
+  
+  if(!file.exists(dlPath)){
+    
+    ## Download File
+    
+    downPath <- paste0('https://www.census.gov/popest/data/metro/totals/2011/tables/',
+                       'CBSA-EST2011-01.csv')
+    
+    download.file(url=downPath, destfile=dlPath)
+    if(verbose) cat('CBSA codes successfully downloaded.\n')
+    
+    ## Read in CBSA codes
+    
+    # Read in
+    cbsa <- read.csv(dlPath, header=F, stringsAsFactors=FALSE)
+    
+    # Remove excess rows and columns
+    cbsa <- cbsa[-c(1:6, 980:985), 1:4]
+    names(cbsa) <- c('code', 'subcode','name', 'pop2010')
+    
+    # Separate City and State
+    commaLoc <- str_locate(cbsa$name, ',')
+    cbsa$city <- substr(cbsa$name, 1, commaLoc[, 1] - 1)
+    cbsa$ST <- substr(cbsa$name, commaLoc[, 1] + 1, 100)
+    cbsa$name <- NULL
+    
+    ## Write file back out
+    
+    write.csv(cbsa, dlPath, row.names=F)
+    if(verbose) cat('CBSA codes clean and written out to.', dlPath, '\n')
+    
+  } else {
+    
+    if(verbose) cat('CBSA file already exists.\n')
+    
+  }
+} # closes function
+
+### Match the city list to its corresponding MSA codes -----------------------------------
+
+matchCityCBSA <- function(iCity,            # Individual City names
+                          cbsaCodes          # Full CBSA data object
+                          ){
+  
+  ## Match based on City Name
+  
+  cityLoc <- as.data.frame(str_locate(cbsaCodes$city, iCity$name))
+  cityMatch <- which(!is.na(cityLoc$start))
+  
+  ## Generate Codes
+  
+  # If no city name match
+  if(length(cityMatch) == 0){
+    cityCode <- 'No Matching City'
+    stateNames <- NA
+  }
+  
+  # If only one city name match
+  if(length(cityMatch) == 1){
+    cityCode <- cbsaCodes$code[cityMatch]
+    stateNames <- cbsaCodes$ST[cityMatch]
+  }
+  
+  # If more than one city name match
+  if(length(cityMatch) > 1){
+    
+    # Multiple states found
+    stateLoc <- as.data.frame(str_locate(cbsaCodes$ST, iCity$state))
+    stateMatch <- which(!is.na(stateLoc$start))
+    cityStateMatch <- cityMatch[cityMatch %in% stateMatch]
+    
+    # If one state matches
+    if(length(cityStateMatch) == 1){
+      cityCode <- cbsaCodes$code[cityStateMatch]
+      stateNames <- cbsaCodes$ST[cityStateMatch]
+    } else {
+      
+      # If duplicate is a sub-MSA
+      if(length(table(cbsaCodes$code[cityStateMatch])) == 1){
+        cityCode <- cbsaCodes$code[cityStateMatch[1]]
+        stateNames <- cbsaCodes$ST[cityStateMatch[1]]
+      } else {  
+        
+        # If no states match
+        cityCode <- 'Invalid City State Combination'
+        stateNames <- NA
+      }
+    }
+  } # closes if(length(cityMatch) > 1) condition
+  
+  ## Return city code
+  
+  return(data.frame(cbsaCode = cityCode,
+                    stateNames = stateNames))
+} 
+
+### Build a list of all states from which data is needed due to cityList -----------------
+
+buildDataStates <- function(stObj            # A state code from the cbsaCodes obj
+                            ){
+  
+  # Set up blank object
+  iST <- NULL
+  
+  # Remove any spaces
+  stObj <- str_replace_all(stObj, " ", "")
+  
+  # Find '-'s indicates multi-state CBSA
+  dashLoc <- as.data.frame(str_locate_all(stObj, "-"))$start
+  
+  # If single state CBSA
+  if(length(dashLoc) == 0){
+    iST <- stObj
+    
+  # If Multistate CSBA, then pull apart object  
+  } else {
+    dashLoc <- c(1, dashLoc, nchar(stObj))
+    for(i in 1:(length(dashLoc) - 1)){
+      iST <- c(iST, str_replace_all(substr(stObj, dashLoc[i], dashLoc[i + 1]), "-", ""))
+    }
+  }
+  
+  ## Return object  
+  return(iST)
+}
+
+### Checks to see which of the data are present, return list of missing ------------------
+
+checkStateData <- function(iState,                # State abbrev to check for data
+                           dataDir=gv$dataDir     # Main directory
+                           ){
+  
+  # Set initial Condition
+  dataPresent <- TRUE
+  
+  # Test for geo data
+  if(!file.exists(paste0(dataDir, '/', iState, '/census/2010/sf1/geo.csv'))){
+    dataPresent <- FALSE
+  }
+  
+  # Test for P22Data
+  if(!file.exists(paste0(dataDir, '/', iState, '/census/2010/sf1/p22Data.csv'))){
+    dataPresent <- FALSE
+  }
+  
+  # Return finding
+  return(dataPresent)
+}  
+
+### Produces message giving state of data acquisition needs ------------------------------
+
+missingMessage <- function(missingData            # Vector of states with missing data
+                           ){
+  
+  # Build Message
+  if(length(missingData) > 0){
+    mdMessage <- "\n\nData is missing from: "
+    for(i in 1:length(missingData)){
+      if(i != length(missingData)){
+        mdMessage <- paste0(mdMessage, 
+                            stateList$state[which(stateList$stateAbbr == 
+                                                    toupper(missingData[i]))], ', ')
+      } else {
+        mdMessage <- paste0(mdMessage, 'and ', 
+                            stateList$state[which(stateList$stateAbbr == 
+                                                    toupper(missingData[i]))])
+      }
+    }
+    
+    mdMessage <- paste0(mdMessage, '\n\n***Missing data will be acquired now.',
+                        'This may take awhile.***\n')
+  } else {
+    mdMessage <- "\n\nAll data is present and data preparation can proceed"
+  }
+  
+  # Return message
+  return(mdMessage)
+}   
+
+### Build the necessary data (geo and P22) for HH x Age analysis -------------------------
+
+buildSF1Data <- function(state,                  # Full state name (capitalized 1st let.)
+                         stAbbr,                 # 2 letter state abbrev.
+                         dataDir=gv$dataDir,     # Base directory to build state data in
+                         verbose=gv$verbose,     # Show comments and completion notices?
+                         fullClean=gv$fullClean  # Delete ZIP file after use?
+){
+  
+ ## Obtain raw data
   
   # Force to lower
   stAbbr <- tolower(stAbbr)
   
   # Download file if necessary
-  if(!file.exists(paste0(mainDir, '/', stAbbr, '/census/2010/sf1/raw/', stAbbr,
+  if(!file.exists(paste0(dataDir, '/', stAbbr, '/census/2010/sf1/raw/', stAbbr,
                          'geo2010.sf1'))){
-    downloadSF1(mainDir, state, stAbbr, verbose)
+    downloadSF1(state, stAbbr)
   } else {
     if(verbose) cat (state, 'raw data files already exist.\n')
   }
   
   # Build file location for future use
-  fileDir <- paste0(mainDir, '/', stAbbr, '/census/2010/sf1')
+  fileDir <- paste0(dataDir, '/', stAbbr, '/census/2010/sf1')
   
   ## Build out Geographic Data
   
@@ -92,11 +428,11 @@ buildSF1Data <- function(mainDir,                # Base directory to build state
 
 ### Builds dir structure, downloads and unpacks necessary sf1 data for HHAge analysis
 
-downloadSF1 <- function(mainDir,                 # Main directory destination 
-                        state,                   # full state name
+downloadSF1 <- function(state,                   # full state name
                         stAbbr,                  # 2 letter state abbr
-                        verbose=TRUE,            # Show messages?
-                        cleanUp=TRUE             # Remove .zip after extraction
+                        dataDir=gv$dataDir,      # Main directory destination 
+                        verbose=gv$verbose,      # Show messages?
+                        cleanUp=gv$fullClean     # Remove .zip after extraction
                         ){
  
  ## Set up locations
@@ -109,7 +445,7 @@ downloadSF1 <- function(mainDir,                 # Main directory destination
   
   # Create directory locations
   if(verbose) cat('...building directory structure...\n')
-  dirPath <- paste0(mainDir, '/', stAbbr)
+  dirPath <- paste0(dataDir, '/', stAbbr)
   dir.create(dirPath, showWarnings = FALSE)
   dirPath <- paste0(dirPath, '/census')
   dir.create(dirPath, showWarnings = FALSE)
@@ -223,340 +559,27 @@ extractHHData <- function(fileDir,               # Directory where p22data will 
   
 } # closes function
 
-### Builds and cleans CBSA code file from census -----------------------------------------
-
-getMSACodes <- function(mainDir,                 # Main directory for all census data
-                        verbose=TRUE             # Provide status reports?
-                        ){
-  
-  ## Create Dir if not there
-  censPath <- paste0(mainDir, '/censusInfo')
-  dir.create(censPath, showWarnings = FALSE)
-  cbsaPath <- paste0(censPath, '/cbsaInfo')
-  dir.create(cbsaPath, showWarnings = FALSE)
-  
-  # Create file location
-  dlPath <- paste0(cbsaPath, '/cbsacodes.csv')
-  
-  if(!file.exists(dlPath)){
-    
-    ## Download File
-    
-    downPath <- paste0('https://www.census.gov/popest/data/metro/totals/2011/tables/',
-                       'CBSA-EST2011-01.csv')
-    
-    download.file(url=downPath, destfile=dlPath)
-    if(verbose) cat('CBSA codes successfully downloaded.\n')
-    
-    ## Read in CBSA codes
-    
-    # Read in
-    cbsa <- read.csv(dlPath, header=F, stringsAsFactors=FALSE)
-    
-    # Remove excess rows and columns
-    cbsa <- cbsa[-c(1:6, 980:985), 1:4]
-    names(cbsa) <- c('code', 'subcode','name', 'pop2010')
-    
-    # Separate City and State
-    commaLoc <- str_locate(cbsa$name, ',')
-    cbsa$city <- substr(cbsa$name, 1, commaLoc[, 1] - 1)
-    cbsa$ST <- substr(cbsa$name, commaLoc[, 1] + 1, 100)
-    cbsa$name <- NULL
-    
-    ## Write file back out
-    
-    write.csv(cbsa, dlPath, row.names=F)
-    if(verbose) cat('CBSA codes clean and written out to.', dlPath, '\n')
-    
-  } else {
-    
-    if(verbose) cat('CBSA file already exists.\n')
-    
-  }
-} # closes function
-
-### Match the city list to its corresponding MSA codes -----------------------------------
-
-matchCityCBSA <- function(iCity,            # Individual City names
-                          cbsaData          # Full CBSA data object
-){
-  
-  ## Match based on City Name
-  
-  cityLoc <- as.data.frame(str_locate(cbsaData$city, iCity$City))
-  cityMatch <- which(!is.na(cityLoc$start))
-  
-  ## Generate Codes
-  
-  # If no city name match
-  if(length(cityMatch) == 0){
-    cityCode <- 'No Matching City'
-    stateNames <- NA
-  }
-  
-  # If only one city name match
-  if(length(cityMatch) == 1){
-    cityCode <- cbsaData$code[cityMatch]
-    stateNames <- cbsaData$ST[cityMatch]
-  }
-  
-  # If more than one city name match
-  if(length(cityMatch) > 1){
-    
-    # Multiple states found
-    stateLoc <- as.data.frame(str_locate(cbsaData$ST, iCity$ST))
-    stateMatch <- which(!is.na(stateLoc$start))
-    cityStateMatch <- cityMatch[cityMatch %in% stateMatch]
-    
-    # If one state matches
-    if(length(cityStateMatch) == 1){
-      cityCode <- cbsaData$code[cityStateMatch]
-      stateNames <- cbsaData$ST[cityStateMatch]
-    } else {
-      
-      # If duplicate is a sub-MSA
-      if(length(table(cbsaData$code[cityStateMatch])) == 1){
-        cityCode <- cbsaData$code[cityStateMatch[1]]
-        stateNames <- cbsaData$ST[cityStateMatch[1]]
-      } else {  
-        
-        # If no states match
-        cityCode <- 'Invalid City State Combination'
-        stateNames <- NA
-      }
-    }
-  } # closes if(length(cityMatch) > 1) condition
-  
-  ## Return city code
-  
-  return(data.frame(cbsaCode = cityCode,
-                    stateNames = stateNames))
-} 
-
-### Build a list of all states from which data is needed due to cityList -----------------
-
-makeDataStates <- function(stObj            # A state code from the cbsaCodes obj
-){
-  
-  # Set up blank object
-  iST <- NULL
-  
-  # Remove any spaces
-  stObj <- str_replace_all(stObj, " ", "")
-  
-  # Find '-'s indicates multi-state CBSA
-  dashLoc <- as.data.frame(str_locate_all(stObj, "-"))$start
-  
-  # If single state CBSA
-  if(length(dashLoc) == 0){
-    iST <- stObj
-    
-    # If Multistate CSBA, then pull apart object  
-  } else {
-    dashLoc <- c(1, dashLoc)
-    for(i in 1:(length(dashLoc) - 1)){
-      iST <- c(iST, str_replace_all(substr(stObj, dashLoc[i], dashLoc[i + 1]), "-", ""))
-    }
-  }
-  
-  ## Return object  
-  return(iST)
-}
-
-
-### confirms all raw census data in in place, if not it gets it --------------------------
-
-confirmRawData <- function(cityList,                # List of cities to analyze
-                           mainDir,                 # Main directory location
-                           codeDir,                 # Location of code
-                           verbose=TRUE             # Show helpful commments?
-){
-  
-  require(stringr)
-  require(plyr)
-  require(dplyr)
-  
-  ## Find the states that are needed
-  
-  # Read in State List
-  stateList <- read.csv(paste0(codeDir, '/stateList.csv'), stringsAsFactors=FALSE)
-  
-  # Read in CBSA List
-  cbsaList <- loadCBSAInfo(mainDir)
-  
-  # Turn city DF into a row-wise list for lapply()
-  cityListX <- list()
-  for(i in 1:nrow(cityList)){cityListX[[i]] <- cityList[i,]}
-  
-  # Develop the cbsa codes
-  cbsaCodes <- rbind.fill(lapply(cityListX, matchCityCBSA, cbsaData=cbsaList))
-  
-  # Send this list to the global environment
-  assign("cbsaCodes", cbsaCodes, envir = .GlobalEnv)
-  
-  # Create a list of all states from which we'll need data
-  dataStates <- sort(unique(unlist(lapply(cbsaCodes$stateNames, makeDataStates))))
-  
-  ## Check to see which data is missing  
-  
-  # convert to lower
-  dataStates <- tolower(dataStates)
-  
-  # Send this list to the global environment
-  assign("listOfStates", dataStates, envir = .GlobalEnv)
-  
-  # check if data exists
-  dataStatus <- unlist(lapply(as.list(dataStates), checkStateData, mainDir=mainDir))
-  missingData <- dataStates[which(!dataStatus)]
-  cat(missingMessage(missingData, stateList))  
-  
-  ## Get remainder of missing data
-  
-  if(length(missingData) >= 1){
-    for(mD in 1:length(missingData)){
-      
-      # Find out full state name
-      mdState <- stateList$state[which(stateList$stateAbbr == toupper(missingData[mD]))]
-      if(verbose) cat("Gathering data for", mdState)
-      
-      # Get Data
-      buildSF1Data(mainDir=mainDir, state=mdState, missingData[mD])
-    }
-  }
-  
-  ## Give notice
-  
-  if(verbose) cat('\n\n***Data acquisition complete.***\n\n')
-  
-}   
-
-### Checks to see which of the data are present, return list of missing ------------------
-
-checkStateData <- function(iState,                # State abbrev to check for data
-                           mainDir                # Main directory
-){
-  
-  # Set initial Condition
-  dataPresent <- TRUE
-  
-  # Test for geo data
-  if(!file.exists(paste0(mainDir, '/', iState, '/census/2010/sf1/geo.csv'))){
-    dataPresent <- FALSE
-  }
-  
-  # Test for P22Data
-  if(!file.exists(paste0(mainDir, '/', iState, '/census/2010/sf1/p22Data.csv'))){
-    dataPresent <- FALSE
-  }
-  
-  # Return finding
-  return(dataPresent)
-}  
-
-### Produces message giving state of data acquisition needs ------------------------------
-
-missingMessage <- function(missingData,           # Vector of states with missing data
-                           stateList              # Full list of states and abbrevs
-){
-  
-  # Build Message
-  if(length(missingData) > 0){
-    mdMessage <- "Data is missing from: "
-    for(i in 1:length(missingData)){
-      if(i != length(missingData)){
-        mdMessage <- paste0(mdMessage, 
-                            stateList$state[which(stateList$stateAbbr == 
-                                                    toupper(missingData[i]))], ', ')
-      } else {
-        mdMessage <- paste0(mdMessage, 'and ', 
-                            stateList$state[which(stateList$stateAbbr == 
-                                                    toupper(missingData[i]))])
-      }
-    }
-    
-    mdMessage <- paste0(mdMessage, '\n\n***Missing data will be acquired now.',
-                        'This may take awhile.***\n')
-  } else {
-    mdMessage <- "All data is present and analysis can proceed"
-  }
-  
-  # Return message
-  return(mdMessage)
-}   
-
-### Loads in the CBSA data and codes -----------------------------------------------------
-
-loadCBSAInfo <- function(mainDir,                 # Main directory
-                         verbose=TRUE             # Give progress?
-){
-  cbsaPath <- paste0(mainDir, '/censusinfo/cbsainfo/cbsacodes.csv')
-  cbsa <- read.csv(cbsaPath)
-  if(verbose) cat('CBSA codes loaded.\n')
-  
-  return(cbsa)
-}
-
-### MASTERFUNCTION #######################################################################
-### Function that controls all aspects of building the HH Data ---------------------------
-
-createHHLocData <- function(mainDir,                    # Main directory
-                            codeDir,                    # Directory where code is
-                            cityList,                   # list of cities to analyze
-                            outputPath,                 # where to output clean data
-                            verbose=TRUE                # Provide status updates
-){
-  
-  # Get all raw data set
-  confirmRawData(cityList, mainDir, codeDir, verbose=TRUE)
-  
-  # Read in all state data
-  dataList <- list()
-  
-  dataList <- lapply(as.list(listOfStates), 
-                     mergeGeoP22, 
-                     cbsaCodes=cbsaCodes, 
-                     mainDir=mainDir)
-  
-  # Merge all data
-  dataList <- rbind.fill(dataList)
-  
-  # Separate by CBSA code
-  dataList <- split(dataList, as.character(dataList$cbsa))
-  
-  # Calc distances to each center (what to do about multiples?)
-  dataList <- lapply(dataList, hhDistCalc, cityList=quickTest,
-                     cbsaCodes=cbsaCodes)
-  
-  # Write out as clean, final data
-  cleanData <- rbind.fill(dataList)
-  write.csv(cleanData, outputPath, row.names=F)
-  
-  
-}
-##########################################################################################
-
 ### Trims to block level geographies, merges GEO and P22 Data ----------------------------
 
-mergeGeoP22 <- function(iState,              # 2 letter state abbreviation code
-                        cbsaCodes,           # Full list of cbsaCodes
-                        mainDir              # Main directory
-){
+mergeGeoP22 <- function(iState,                  # 2 letter state abbreviation code
+                        cbsaList                # Full list of cbsaCodes
+                        ){
   
   # Force to lower
   iState <- tolower(iState)
   
   # Read in Geo Data  
-  geoData <- read.csv(paste0(mainDir, '/', iState, '/census/2010/sf1/geo.csv'),
-                      header=T)
+  geoData <- read.csv(paste0(gv$dataDir, '/', iState, '/census/2010/sf1/geo.csv'),
+                      header=T, stringsAsFactors=FALSE)
   
   # Read in household data
-  hhData <- read.csv(paste0(mainDir, '/', iState, '/census/2010/sf1/p22Data.csv'),
-                     header=T)  
+  hhData <- read.csv(paste0(gv$dataDir, '/', iState, '/census/2010/sf1/p22Data.csv'),
+                     header=T, stringsAsFactors=FALSE)  
   
   # Match all CBSA codes in that state
-  stateMatch <- as.data.frame(str_locate(cbsaCodes$stateNames, 
+  stateMatch <- as.data.frame(str_locate(cbsaList$stateNames, 
                                          toupper(iState)))$start
-  cbsaList <- cbsaCodes$cbsaCode[which(!is.na(stateMatch))]
+  iCbsa <- cbsaList$cbsaCode[which(!is.na(stateMatch))]
   
   ## Limit Geo list
   
@@ -565,7 +588,7 @@ mergeGeoP22 <- function(iState,              # 2 letter state abbreviation code
   
   # By CBSA 
   blockGeos <- subset(blockGeos, cbsa != "")
-  blockGeos <- subset(blockGeos, cbsa %in% cbsaList)
+  blockGeos <- subset(blockGeos, cbsa %in% iCbsa)
   
   ## Join to HH Data
   
@@ -578,27 +601,58 @@ mergeGeoP22 <- function(iState,              # 2 letter state abbreviation code
   
 }
 
+
 ### Calculated distances for each CBSA data group ----------------------------------------
 
 hhDistCalc <- function(dataObj,               # A DF of data for one CBSA
                        cityList,              # Full list of cities
-                       cbsaCodes              # Full List of CBSA Codes
-){
+                       cbsaList               # Full List of CBSA Codes
+                       ){
   
   # Ensure that city names are in lower case
   names(cityList) <- tolower(names(cityList))
   
   # Grab city which matches the dataObj
-  iC <- which(cbsaCodes$cbsaCode == dataObj$cbsa[1])
-  iCity <- cityList[iC[1], ]
+  iC <- which(cbsaList$cbsaCode == dataObj$cbsa[1])
   
-  # Calculate distances (in Miles)
-  dists <- sqrt(((dataObj$lat - iCity$lat)^2) + ((dataObj$long) - iCity$long)^2)*69
+  if(length(iC) == 1){
+    
+    # Select City
+    iCity <- cityList[iC[1], ]
   
-  # Add Distances and city name to dataObj
-  dataObj$dists <- dists
-  dataObj$cityName <- iCity$city
+    # Calculate distances (in Miles)
+    dists <- sqrt(((dataObj$lat - iCity$lat)^2) + ((dataObj$long) - iCity$long)^2)*69
   
+    # Add Distances and city name to dataObj
+    dataObj$dists <- dists
+    dataObj$subDists <- dists
+    dataObj$cityName <- iCity$name
+    dataObj$subName <- 'none'
+  
+  } else {
+    
+    # Build Empty matrix
+    distMatrix <- matrix(ncol=length(iC), nrow=nrow(dataObj))
+    
+    # Calc all distances
+    for(dM in 1:length(iC)){
+      iCity <- cityList[iC[dM],]
+      distMatrix[,dM] <- dists <- sqrt(((dataObj$lat - iCity$lat)^2) + 
+                                     ((dataObj$long) - iCity$long)^2)*69
+      
+    }
+    distMatrix <- as.data.frame(distMatrix)
+    colnames(distMatrix) <- cityList$subcentername[iC]
+    
+    # Assign values
+    dataObj$dists <- distMatrix$none
+    dMins <- apply(distMatrix,1,function(x) which(x==min(x)))
+    ordMatrix <- apply(distMatrix, 1, sort)
+    dataObj$subDists <- ordMatrix[1,]
+    dataObj$cityName <- iCity$name[1]
+    dataObj$subName <- names(distMatrix)[dMins]
+  }  
+    
   # Return data Obj
   return(dataObj)
   
