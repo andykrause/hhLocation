@@ -8,7 +8,7 @@ buildCBSAData <- function(nbrCBSA,                  # Nbr of top CBSAs to consid
   
   ## Get the CBSA list off of the web (or your local drive if done already)
   
-  cbsa <- fetchCBSACodes(dataDir=dataDir, verbose=verbose, retCBSA=TRUE)
+  cbsa <- getCBSACodes(dataDir=dataDir, verbose=verbose, retCBSA=TRUE)
   
   ## Pull out top X number of metro areas by population
   
@@ -26,6 +26,8 @@ buildCBSAData <- function(nbrCBSA,                  # Nbr of top CBSAs to consid
   
   # Isolate those that matched
   resCheck <- which(unlist(lapply(cityList, class))=='data.frame')  
+  
+  # Turn into DF and remove .s from names
   cityListX <- rbind.fill(cityList[resCheck])
   cityListX$city <- gsub("[.]", "", cityListX$city)
   
@@ -46,9 +48,9 @@ buildCBSAData <- function(nbrCBSA,                  # Nbr of top CBSAs to consid
 
 ### Download the full CBSA list ----------------------------------------------------------
 
-fetchCBSACodes <- function(dataDir=gv$dataDir,       # Main directory for all census data
-                           verbose=gv$verbose,       # Provide status reports?
-                           retCBSA=FALSE             # Return values to function call?
+getCBSACodes <- function(dataDir=gv$dataDir,       # Main directory for all census data
+                         verbose=gv$verbose,       # Provide status reports?
+                         retCBSA=FALSE             # Return values to function call?
 ){
   
   ## Create Dir if not there
@@ -102,7 +104,8 @@ fetchCBSACodes <- function(dataDir=gv$dataDir,       # Main directory for all ce
     
   } else {
     
-    if(verbose) cat('CBSA file already exists. Reading into memory.\n')
+    if(verbose) cat('\nFile containing raw list of CBSAs file already exists.\n',
+                    'Reading into memory.\n')
     cbsa <- read.csv(dlPath, header=T, stringsAsFactors=FALSE)
     
   }
@@ -122,22 +125,28 @@ findCBSACenters <- function(cbsaList,                 # List of choses CBSAs to 
   {
   
   
-  ##  clean up entries in the CBSA List
+  #  clean up entries in the CBSA List
   cbsaList$city <- gsub('--', '-', cbsaList$city)
   cbsaList$city <- gsub('/', '-', cbsaList$city)
   cbsaList$city <- gsub('St.', 'St', cbsaList$city)
-  
   cbsaList$ST <- gsub(' ', '', cbsaList$ST)
   
+ ## Find centers and subcenters
+ 
+  # Create blank list
   cityList <- list()
   
+  # Loop through list of cbsa entries
   for(i in 1:nrow(cbsaList)){
     
+    # Isolate 'i'th cbsa entry
     iCBSA <- cbsaList[i, ]
     
+    # Remove dashes and cut if in list of entries to ignore
     iCity <- unlist(strsplit(iCBSA$city, '-'))
     iCity <- iCity[!iCity %in% badList]
     
+    # Determine if it is a main city in a sub-center cbsa entry
     mainID <- which(substr(iCity, 1, 1) == '.')
     if(length(mainID) !=0 & length(iCity) > 1){
       mainCity <- str_replace_all(iCity[mainID], "[.]", "")
@@ -146,15 +155,23 @@ findCBSACenters <- function(cbsaList,                 # List of choses CBSAs to 
       mainCity <- iCity[1]
     }
     
+    # Remove those labeled only as counties since they have no CBD X,Y
     iCounty <- grep('County', iCity)
     if(length(iCounty) > 0) iCity <- iCity[-iCounty]
+    
+    # Split up states into a vector
     iST <- unlist(strsplit(iCBSA$ST, '-'))
     
+    # If at least one city remains, then find XYs
     if(length(iCity) > 0){
       
+      # Create blank list
       tempCities <- list()
       
+      # Loop through list of cities
       for(j in 1:length(iCity)){
+        
+        # If the primary city of CBSA
         if(j == 1 & (is.na(iCBSA$subcode) || iCBSA$subcode == '')){
           cat('\n\nObtaining Latitude and Longitude for', iCity[j], ',', iST[1])
           iXY <- getGoogleLatLong(iCity[j], iST[1])
@@ -164,6 +181,8 @@ findCBSACenters <- function(cbsaList,                 # List of choses CBSAs to 
                                         long=iXY$long,
                                         lat=iXY$lat)
         } else {
+          
+          # If not primary, but only one state listed
           if(length(iST) == 1){
             iXY <- getGoogleLatLong(iCity[j], iST[1])
             cat('\n\nObtaining Latitude and Longitude for', iCity[j], ',', iST[1])
@@ -174,30 +193,40 @@ findCBSACenters <- function(cbsaList,                 # List of choses CBSAs to 
                                           lat=iXY$lat)    
           } else {
             
+            # If not primary and multiple states listed
             stRes <- list()
             states <- NULL
+            
+            # Try each city/state combination
             for(k in 1:length(iST)){
               stRes[[k]] <- try(getGoogleLatLong(iCity[j], iST[k]), silent=TRUE)
               cat('\n\nObtaining Latitude and Longitude for', iCity[j], ',', iST[k])
               states <- c(states, iST[k])
             }
+            
+            # Find out which ones worked
             sClass <- unlist(lapply(stRes, class))
             yesResults <- sClass!='try-error'
             sNA <- !unlist(lapply(lapply(stRes, is.na), function(x) x[1]))
             states <- states[yesResults & sNA]
             stRes <- rbind.fill(stRes[yesResults & sNA])
             
+            # If only one worked, that is closest
             if(length(unique(stRes$long)) == 1){
               iXY <- stRes[1,]
               closest <- 1
               
             } else {
+              
+              # If multiple worked, then find out which is closest to primary city
               mainXY <- getGoogleLatLong(mainCity, iST[1])
               mDists <- distHaversine(p1=c(mainXY$long, mainXY$lat),
                                       p2=cbind(stRes$long, stRes$lat))
               closest <- which(mDists == min(mDists))[1]
               iXY <- stRes[closest,]
             }
+            
+            # Save information in a list
             tempCities[[j]] <- data.frame(cbsa=iCBSA$code,
                                           city=iCity[j],
                                           state=states[closest],
@@ -207,13 +236,20 @@ findCBSACenters <- function(cbsaList,                 # List of choses CBSAs to 
         }   
       }
       
+      # Combine all data for each CBSA code into a DF into a list
       cityList[[i]] <- rbind.fill(tempCities)
+      
+      # Pause for 15 seconds to make sure Google Maps doesn't issue denial of service
       Sys.sleep(15)
       
     } else {
+      
+      # If nothing is found, label as such
       cityList[[i]] <- 'No city'
     }
   }
+ 
+  # Return list to function
   return(cityList)
 }
 
