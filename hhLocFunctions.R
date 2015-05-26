@@ -5,6 +5,25 @@
 #
 ##########################################################################################
 
+### Function for scaling HH distance by a single maximum value ---------------------------
+
+scaleHHDist <- function(distValues,                  # hhData distance values
+                        maxDist = 60                 # Maximum distance allowed
+                        ){
+                         
+  # Find the maximum in this CBSA
+  distMax <- max(distValues)
+  
+  # If max is greater than allowed maximum, force it to be allowed maximum
+  if(distMax > maxDist) distMax <- maxDist
+  
+  # Calculate the normal
+  distScaled <- distValues / distMax
+            
+  # Return Value
+  return(distScaled)
+}
+
 ### Distance based location quotient functions -------------------------------------------
   #  Calculates the proportion of the whole for one field compared to the
   #  Proportion of the whole for another field over space
@@ -38,14 +57,14 @@ buildLQData <- function(yData,             # Data.frame of all data
   if(metroName == "All"){
     mData <- yData
   } else {
-    mData <- subset(yData, NameAlt==metroName)
+    mData <- subset(yData, cityName == metroName)
   }
   
   # Extract age groups
-  pNames <- names(mData)[grep("pop", names(mData))]
+  pNames <- names(mData)[grep("hh", names(mData))]
   
   # Calculate initial LQs
-  locQs <- lapply(pNames, distLQ, xData=mData, field2='TotHHLD', xLocation='distNorm')
+  locQs <- lapply(pNames, distLQ, xData=mData, field2='total', xLocation='distScaled')
   
   # Build lines
   if(smoothLines){
@@ -85,7 +104,9 @@ buildLQData <- function(yData,             # Data.frame of all data
 buildAgeLQPlot <- function(xData,                # a plotData object from buildLQData
                            titleName="",         # Title of the plot
                            colorByAge=FALSE,     # Color the lines by age group?
-                           addSmoothing=TRUE     # Add SE and Smoothed Line?
+                           addPOINT=TRUE,     # add points?
+                           addLM=TRUE,   #add linear regression line?
+                           addS=TRUE     #Add SE and Smoothed Line?
                            ){
   
   # Create Base Plot
@@ -96,13 +117,23 @@ buildAgeLQPlot <- function(xData,                # a plotData object from buildL
   }
   
   # Create Base Plot
-  basePlot <- ggplot(xData, aes(x=tX,y=y, color=hhColor)) +
-  geom_line(size=1)
+  basePlot <- ggplot(xData, aes(x=tX,y=y, color=hhColor)) 
     
-  # Add Lines
-  if(addSmoothing){
-    basePlot <- basePlot + stat_smooth(level=.9999, size=.8)
+  # Add points
+  if(addPOINT){
+    basePlot <- basePlot + geom_point(colour = "red", size = 1.5, alpha = 0.4)
   }
+  
+  # Add SE & Smoothed line
+  if(addS){
+    basePlot <- basePlot + stat_smooth(level=.9999, size=0.9) 
+  }
+  
+  # Add lm regressuin line
+  if(addLM){
+    basePlot <- basePlot + stat_smooth(method=lm, colour = "black", alpha=0.0, size=0.4, linetype = 2)
+  }
+  
   
   # Create 4x2 facets
   finalPlot <- basePlot + facet_wrap(~HouseholdAge, ncol=2) +
@@ -115,7 +146,7 @@ buildAgeLQPlot <- function(xData,                # a plotData object from buildL
   ggtitle(titleName) +
   theme(plot.title = element_text(size=20, face="bold"),
         legend.position = 'none',
-        panel.background =  element_rect(fill = "grey95", colour = NA))
+        panel.background =  element_rect(fill = "White", colour = NA))
   
   # Return to Function
   return(finalPlot)
