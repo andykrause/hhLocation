@@ -1,6 +1,6 @@
 # Household age and metropolitan location
 
-This repository contains the necessary code to reproduce the analysis of household location across 35 metropolitan regions as discussed in the paper entitled: "Fancy Title Here", by Anonymous Real Estate Author (anonymous for peer review effects).
+This repository contains the necessary code to reproduce the analysis of household location across 50 metropolitan regions as discussed in the paper entitled: "Fancy Title Here", by Anonymous Real Estate Author (anonymous for peer review effects).
 
 ## Documentation
 
@@ -18,16 +18,12 @@ This document explains the process for reproducing the data and analysis describ
 
 The data files used in this analysis are hosted on the Harvard Dataverse Network and can be accessed online at [ http://dx.doi.org/10.7910/DVN/RHJCNC]( http://dx.doi.org/10.7910/DVN/RHJCNC "DOI"). Navigate to the 'DATA & ANALYSIS' tab and download all files in the 'Raw Assessor Data' and 'Raw GIS Data' sections.  Save the files to a suitable working directory.  This working directory will be used in the data preparation and analysis code that follows.  Users without a current Dataverse account will need to create a free account in order to access the data.
 
-1. dataPrepCode.R:  The script to clean and prepare the raw data.
-2. basicConversionTools.R:  A set of basic tools for converting data formats.
-3. kingDataDevelop.R: A set of functions for dealing specific with King County data.
-4. kingBuildSales.R: A set of function for dealing specically with King County Sales data.
-5. dataAnalysisCode.R: The script that generates the results as discussed in the paper.
-6. spatEconTools.R: A set of helper functions for working with spatial econometric models.
-
+1. hhLocAnalysis.R:  The main script which controls the data cleaning, analysis and plotting.
+2. buildCBSAData.R:  A set of functions to download and prepare the necessary CBSA information.
+3. buildHHData.R: A set of functions for downloading and preparing the necessary census SF1 data.
+4. hhLocFunctions.R: A set of functions for analyzing and plotting the household location data and results.
 
 `install.packages()` 
-
 
     library(RODBC)
     library(RSQLite)
