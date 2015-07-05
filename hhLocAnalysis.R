@@ -21,8 +21,9 @@
   reBuildData <- TRUE
   reCleanData <- TRUE
   reScaleDists <- TRUE
-  verbose <- TRUE
   nbrCBSA <- 50
+  maxDist <- 60
+  verbose <- TRUE
 
  ## Set patha
 
@@ -46,8 +47,8 @@
   assign('gv', list(dataDir=dataDir,
                     codeDir=codeDir,
                     verbose=verbose,
-                    nbrCBSA=nbrCBSA
-                    ))
+                    nbrCBSA=nbrCBSA,
+                    maxDist=maxDist))
 
  ## If data is to be rebuilt
 
@@ -144,7 +145,7 @@
         cityInd <- which(xData$subName == cNames[iName])
         
         xData$distScaled[cityInd] <- round(scaleHHDist(xData$subDists[cityInd],
-                                                 maxDist=60),2)
+                                                 maxDist=gv$maxDist), 2)
      } # Ends for loop
     
     # Remove all those over 1
