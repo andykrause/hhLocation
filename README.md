@@ -226,4 +226,107 @@ If the distances are not being recalculated (and the user has downloaded the int
      xData <- read.csv(cleanDataFile, header=T)
      }
 
+### Data Analysis 
+
+In this section we analyze the **hhData** using a set of custom function developed and described in the ``hhLocFunctions.R`` file. 
+
+#### All Metro Analysis 
+ 
+We begin by calculating the location quotients for all age groups across the combined set of census block in our study (all 50 CBSAs) using the **buildLQData()** function. The *logScale* argument determines the scaling on the X-axis, with a value of less than one essentially exaggerating the area near the CBD for visualization purposes. The *smoothLines* argument tells the function not to not create an additional smoothing step.  
+ 
+      allData <- buildLQData(xData, metroName='All', logScale=5/9, smoothLines=FALSE)
+  
+Next, the **buildAgeLQPlot()** function takes the output from the previous step and plots it (on a ggPlot canvas).  
+
+      allPlot <- buildAgeLQPlot(allData$plotData, title='All Metros', colorByAge=F,
+                                addPOINT=TRUE, addS=TRUE, addLM=TRUE)
+
+Finally, we export the plots to a .jpg file format
+  
+      jpeg(paste0(figurePath, "/All.jpg"), res=400, width=2500, height=3500)
+         allPlot    
+      dev.off(which=dev.cur())  
+      
+#### Metro-specific examples
+
+We then create metro-specific analysis here, using Chicago and New York as examples. 
+  
+##### Chicago
+  
+     chiData <- buildLQData(xData, metroName='Chicago', logScale=5/9)
+     chiPlot <- buildAgeLQPlot(chiData$plotData, title='Chicago Metro', colorByAge=F)
+     jpeg(paste0(figurePath, "/Chicago.jpg"), res=400, width=2500, height=3500)
+      chiPlot    
+     dev.off(which=dev.cur())  
+
+##### New York
+
+     nyData <- buildLQData(xData, metroName='NY', logScale=5/9)
+     nyPlot <- buildAgeLQPlot(nyData$plotData, title='New York Metro', colorByAge=F)
+     jpeg(paste0(figurePath, "/NewYork.jpg"), res=400, width=2500, height=3500)
+       nyPlot    
+     dev.off(which=dev.cur())  
+      
+
+### Age-specific Analysis
+
+We also compare a single age cohort (a set of individuals within a defined ten-year period) across all metropolitan regions.  The visualization of this analysis is shown via sparklines.
+
+First, location quotients for all ages across all metro regions are calculated (NOTE: this can be a lengthly process)
+
+     metroNames <- names(table(xData$cityName))
+     metroData <- lapply(metroNames, buildLQData, yData=xData, logScale=5/9)
+
+We then extract data from a single age cohort from all regions -- in this case from the set of households whose householder is between the ages of 15 to 24.
+
+     age15Data <- lapply(metroData, stripAgeData, ageFactor=1)
+     names(age15Data) <- metroNames
+
+This data is then plotted used the **citySparkLines()** function.  
+
+     jpeg(paste0(figurePath, "/Age15_24.jpg"), res=400, width=2500, height=3500)
+       citySparkLines(age15Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
+                      plotTitle = 'Households Ages 15 - 24')
+     dev.off(which=dev.cur())
+
+We then do the same for the 75 to 84 cohort and the 85+ cohort.
+
+     # Ages 75 to 84
+     age75Data <- lapply(metroData, stripAgeData, ageFactor=7)
+     names(age75Data) <- metroNames
+     jpeg(paste0(figurePath, "/Age75_84.jpg"), res=400, width=2500, height=3500)
+     citySparkLines(age75Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
+                    plotTitle = 'Households Ages 75 - 84')
+     dev.off(which=dev.cur())
+
+     # Age 85+
+     age85Data <- lapply(metroData, stripAgeData, ageFactor=8)
+     names(age85Data) <- metroNames
+     jpeg(paste0(figurePath, "/Age85+.jpg"), res=400, width=2500, height=3500)
+     citySparkLines(age85Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
+                    plotTitle = 'Households Ages 85+')
+     dev.off(which=dev.cur())
+
+# ABTIN CAN YOU DESCRIBE WHAT IS GOING ON HERE?
+
+ ### Overlapping SEs
+
+  d1 <- allData$plotData
+  overlap <- ggplot(d1, aes(x=x,y=y, color=HouseholdAge)) + stat_smooth()+ ylab("Location Quotient") +
+     xlab("Distance from CBD") +geom_point(position = "jitter", alpha = 0.3) 
+
+  jpeg(paste0(figurePath, "/overlap.jpg"), res=400, width=6500, height=3500)
+    overlap    
+  dev.off(which=dev.cur())  
+
+### Overlapping LMs 
+
+  overlap2 <- ggplot(d1, aes(x=x,y=y, color=HouseholdAge)) 
+  #overlap2 <- overlap2 + geom_point(alpha = 0.3)
+  overlap2 <- overlap2 + stat_smooth(method="lm", geom="smooth", formula= y~x, size=.8, se=TRUE) + ylab("Location Quotient") +
+    xlab("Distance from CBD") 
+  
+  jpeg(paste0(figurePath, "/overlapLM.jpg"), res=400, width=6500, height=3500)
+    overlap2    
+  dev.off(which=dev.cur()) 
 
