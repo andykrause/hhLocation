@@ -170,10 +170,8 @@
    
  }
  
-
 ##########################################################################################
 ### Data Analysis ------------------------------------------------------------------------
-
 
 ### All Metros ---------------------------------------------------------------------------
  
@@ -196,19 +194,15 @@
   # Chicago
   chiData <- buildLQData(xData, metroName='Chicago', logScale=5/9)
   chiPlot <- buildAgeLQPlot(chiData$plotData, title='Chicago Metro', colorByAge=F)
-
-  # Seattle
-  nyData <- buildLQData(xData, metroName='NY', logScale=5/9)
-  nyPlot <- buildAgeLQPlot(nyData$plotData, title='New York Metro', colorByAge=F)
-
- ## Export Plots
-
   jpeg(paste0(figurePath, "/Chicago.jpg"), res=400, width=2500, height=3500)
     chiPlot    
   dev.off(which=dev.cur())  
 
+  # New York
+  nyData <- buildLQData(xData, metroName='NY', logScale=5/9)
+  nyPlot <- buildAgeLQPlot(nyData$plotData, title='New York Metro', colorByAge=F)
   jpeg(paste0(figurePath, "/NewYork.jpg"), res=400, width=2500, height=3500)
-   nyPlot    
+    nyPlot    
   dev.off(which=dev.cur())  
 
 ### Compare by age group -----------------------------------------------------------------
@@ -216,7 +210,6 @@
  ## Extra data for all metros
 
   metroNames <- names(table(xData$cityName))
-
   metroData <- lapply(metroNames, buildLQData, yData=xData, logScale=5/9)
 
 ## Extract age specific data 15-24
