@@ -307,26 +307,26 @@ We then do the same for the 75 to 84 cohort and the 85+ cohort.
                     plotTitle = 'Households Ages 85+')
      dev.off(which=dev.cur())
 
-# ABTIN CAN YOU DESCRIBE WHAT IS GOING ON HERE?
+## Overlapping Age Groups 
+To compare age groups, we overlap age-specific trend lines and add standard errors for each age group.
 
- ### Overlapping SEs
+### Overlapping smoothed trend lines (Figure 3) 
+Using loess smoothing function, we create trend lines for each age group and display confidence interval around smoothed lines. We also display jottered data points (a position adjustment to display overlappling points) and make them transparent.
 
-  d1 <- allData$plotData
-  overlap <- ggplot(d1, aes(x=x,y=y, color=HouseholdAge)) + stat_smooth()+ ylab("Location Quotient") +
-     xlab("Distance from CBD") +geom_point(position = "jitter", alpha = 0.3) 
-
-  jpeg(paste0(figurePath, "/overlap.jpg"), res=400, width=6500, height=3500)
+    d1 <- allData$plotData
+    overlap <- ggplot(d1, aes(x=x,y=y, color=HouseholdAge)) + stat_smooth()+ ylab("Location Quotient") +
+    xlab("Distance from CBD") +geom_point(position = "jitter", alpha = 0.3) 
+    jpeg(paste0(figurePath, "/overlap.jpg"), res=400, width=6500, height=3500)
     overlap    
-  dev.off(which=dev.cur())  
+    dev.off(which=dev.cur())  
 
-### Overlapping LMs 
+### Overlapping linear trend lines (Figure 4) 
+We followed the same procedure for smoothed trend lines, but substitute loess smoothing technique with linear regression method. 
 
-  overlap2 <- ggplot(d1, aes(x=x,y=y, color=HouseholdAge)) 
-  #overlap2 <- overlap2 + geom_point(alpha = 0.3)
-  overlap2 <- overlap2 + stat_smooth(method="lm", geom="smooth", formula= y~x, size=.8, se=TRUE) + ylab("Location Quotient") +
+    overlap2 <- ggplot(d1, aes(x=x,y=y, color=HouseholdAge)) 
+    overlap2 <- overlap2 + stat_smooth(method="lm", geom="smooth", formula= y~x, size=.8, se=TRUE) + ylab("Location Quotient") +
     xlab("Distance from CBD") 
-  
-  jpeg(paste0(figurePath, "/overlapLM.jpg"), res=400, width=6500, height=3500)
+    jpeg(paste0(figurePath, "/overlapLM.jpg"), res=400, width=6500, height=3500)
     overlap2    
-  dev.off(which=dev.cur()) 
+    dev.off(which=dev.cur()) 
 
