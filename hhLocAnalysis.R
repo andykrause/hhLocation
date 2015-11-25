@@ -18,11 +18,8 @@
 
  ## Set parameters
 
-  # Required
   reBuildData <- TRUE
   reCleanData <- TRUE
-  
-  # Optional 
   reScaleDists <- TRUE
   nbrCBSA <- 50
   maxDist <- 60
