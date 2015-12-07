@@ -9,7 +9,7 @@
  ## Load Libraries
 
   library(ggplot2)
-  library(reshape)
+  library(reshape2)
   library(R.utils)
   library(plyr)
   library(dplyr)
@@ -31,7 +31,7 @@
  ## Set patha
 
   dataDir <- 'd:/data/usa'
-  codeDir <- 'c:/Dropbox/Research/PopDistPaper2/Code/hhLocation'
+  codeDir <- 'D:/Code/R/research/hhLocation'
   rawDataFile <- 'c:/temp/hhdata.csv'       # where raw file is located data file
   cleanDataFile <- 'c:/temp/cleandata.csv'   # where to store clean data file
   figurePath <- 'c:/Dropbox/Research/PopDistPaper2/graphs'
