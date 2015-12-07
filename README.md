@@ -1,24 +1,24 @@
 # Household age and metropolitan location
 
-This repository contains the necessary code to reproduce the analysis of household location across 50 metropolitan regions as discussed in the paper entitled: "Fancy Title Here", by Anonymous Real Estate Authors (anonymous for peer review effects).
+This repository contains the necessary code to reproduce the analysis of household location across 50 metropolitan regions as discussed in the paper entitled: "A Cohort Location Model of Household Sorting in US Metropolitan Regions", by Hossein Estiri and Andy Krause.
 
 ## Documentation
 
 ### Introduction
 
-This document explains the process for reproducing the data and analysis described in the paper entitled ``Fancy Title Here''.  There are three key steps in reproducing the data and analysis:
+This document explains the process for reproducing the data and analysis described in the paper entitled ``A Cohort Location Model of Household Sorting in US Metropolitan Regions''.  There are three key steps in reproducing the data and analysis:
 
-1. Download all code and data files from this repository at: [http://www.github.com/AnonREAuthor/hhLocation](http://www.github.com/AnonREAuthor/hhLocation "Git")
+1. Download all code and data files from this repository at: [http://www.github.com/AndyKrause/hhLocation](http://www.github.com/AndyKrause/hhLocation "Git")
 
 2. Open the code in R and change the directory paths to your desired paths (more on this later)
 
 3. Execute the **hhLocAnalysis.R** script.  Note:  this may take a few hours as the raw data is downloaded the first time you run the script.
 
-NOTE: Data at two intermediate steps may be downloaded from DATAVERSE WEBSITE.  This allows the user to skip the very lengthly and data storage heavy data compilation and initial cleaning and compiling steps (if so desired).  The two intermediate datasets are described below.
+NOTE: Data at two intermediate steps may be downloaded from [Dataverse Repository](https://dataverse.harvard.edu/dataverse/repHHLoc/).  This allows the user to skip the very lengthly and data storage heavy data compilation and initial cleaning and compiling steps (if so desired).  The two intermediate datasets are described below.
 
 ### Downloading Code and Data
 
-All code used the create this analysis, including raw data, cleaned data and final analysis are available at [http://www.github.com/AnonREAuthor/hhLocation](http://www.github.com/AnonREAuthor/hhLocation "Git").  This complete data provenance is recorded in R (version 3.1.1) and was built using the RStudio IDE.  There are four separate files in this repository.  The first, **hhLocAnalysis.R:**, is the main script and is the only one that needs to be updated and executed.  A description of each is below.
+All code used the create this analysis, including raw data, cleaned data and final analysis are available at [http://www.github.com/AndyKrause/hhLocation](http://www.github.com/AndyKrause/hhLocation "Git").  This complete data provenance is recorded in R (version 3.1.1) and was built using the RStudio IDE.  There are four separate files in this repository.  The first, **hhLocAnalysis.R:**, is the main script and is the only one that needs to be updated and executed.  A description of each is below.
 
 1. **hhLocAnalysis.R:**  The main script which controls the data cleaning, analysis and plotting.
 2. **buildCBSAData.R:**  A set of functions to download and prepare the necessary CBSA information.
