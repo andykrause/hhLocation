@@ -1,3 +1,7 @@
+##### Title 
+
+An analysis of household location choice in major U.S. metropolitan areas using R
+
 ##### Introduction
 *Please answer these introductory questions for your case study in a few sentences.*
 
@@ -17,20 +21,34 @@ Hossein Estiri, Senior Fellow in the Institute of Translational Health Sciences 
 
 ##### Workflow narrative
 
-This research analyzes the household location choices of American households in the largest 50 metropolitan areas in the United States.  Households are broken down by five-year age cohorts (based on the age of the head of the householder) and mapped against the household's distance (census block group level) from the central business district of the metropolitan area in which they reside.  In polycentric regions such as Seattle (Tacoma, Bellevue and Everett as alternative CBDs), analyses are conducted on distance to core center as well as secondary centers. An initial paper reporting the results is currently under review.
+This research analyzes the household location choices of American households in the largest 50 metropolitan areas in the United States.  Households are broken down by five-year age cohorts (based on the age of the head of the householder) and mapped against the household's distance (census block group level) from the central business district of the metropolitan area in which they reside.  In polycentric regions such as Seattle (Tacoma, Bellevue and Everett as alternative Central Business Districts (CBDs)), analyses are conducted on distance to core center as well as secondary centers. An initial paper reporting the results is currently under review.
 
-All data, code and analytical workflow are hosted on-line.  Code and analytical workflow, including analytical script and custom function sets, are written in R and found on the project's [Github Repository](http:/github.com/andykrause/hhLocation).  The complete set of raw data is available through the U.S. Census (discussed below).  Users wishing to skip the data compiling and/or cleaning steps can download the compiled or cleaned data from the project's [Dataverse Repository](https://dataverse.harvard.edu/dataverse/repHHLoc/).  
+All data, code and analytical workflow are hosted on-line.  Code and analytical workflow, including analytical script and custom function sets, are written in R and found on the project's [Github Repository](http:/github.com/andykrause/hhLocation).  The complete set of raw data is available through the U.S. Census.  Users wishing to skip the data compiling and/or cleaning steps can download the compiled or cleaned data from the project's [Dataverse Repository](https://dataverse.harvard.edu/dataverse/repHHLoc/).  
 
-The *hhLocAnalysis.R* file in the main analysis script and the only file that needs to be executed.  Two key process parameters must be manually set:
+The *hhLocAnalysis.R* file in the main analysis script and the only file that needs to be executed.  Two key path parameters and two key process parameters must be manually set:
 
-1. **reBuildData** - do you want to go through the entire data compilation process?
-2. **reCleanData** - do you want to re-clean data?
+1. **codeDir**: Location of the cloned Github code repository
+2. **dataDir**: Location of the raw (and/or cleaned) data downloaded from Dataverse
+3. **reBuildData** - Do you want to go through the entire data compilation process?
+4. **reCleanData** - Do you want to re-clean data?
 
-A third parameter -- the location of a suitable data directory -- must be set if **reBuildData** is set to TRUE. 
+<!---A third parameter -- the location of a suitable data directory -- must be set if **reBuildData** is set to TRUE. 
 
-The user must also specify the directory where the [Code Repository](http:/github.com/andykrause/hhLocation) was cloned (**codeDir**). Additional parameters regarding the location of the downloaded intermediate data (see below) -- **rawDataFile** and **cleanDataFile** -- and a path to output the figues to (**figurePath**) must also be set. This is the extent of manual operations. All other processes run automatically.  If the data is fully built from scratch this process may take multiple hours. Additionally, the user may change a number of the optional paramters that handle the distance scaling, overall number of metro-regions to analyze, maximum distance from CBD center to include in the data and whether or not computational progress is reported. 
+The user must also specify the directory where the [Code Repository](http:/github.com/andykrause/hhLocation) was cloned (**codeDir**).---> 
 
-The raw data for this study comes primarily from the U.S. Census's FTP site.  Data files for every county in the fifty largest metropolitan areas are downloaded, unzipped, cleaned and written out as a standardized .csv file.  Custom functions to handle the data acquisition process were written in R and are found in the *buildHHData.R* and *buildCBSAData.R* files in the repository.  This time consuming (and data storage intensive) process of compilation can be avoided by setting **reBuildData** to FALSE. If either **reBuildData** or **reCleanData** are set to FALSE then the intermediate data sets (raw compiled and/or cleaned) must be downloaded from the [Dataverse Repository](https://dataverse.harvard.edu/dataverse/repHHLoc/).  Two additional files containing city and CBSA (metro region) names are also needed for the analysis.  These files are available in .csv form in the code repository. 
+Additional parameters regarding the file names of the downloaded intermediate data and the path to export the results may need to be set also be set prior to executing the script
+
+5. **rawDataFile**: (Optional).  If **reBuildData** is equal to FALSE and **reCleanData** is equal to TRUE then you will need to provide the name of the base data file (within the **dataDir**) downloaded from Dataverse. 
+6. **cleanDataFile**: (Optional).  If both **reBuildData** and **reCleanData** are FALSE then you will need to provide the name of the cleaned data file (within the **dataDir**) downloaded from Dataverse.
+7. **figurePath**: (Optional) If you intended to output the plots
+
+This is the extent of manual operations. All other processes run automatically.  If the data is fully built (**reBuildData** = TRUE and **reCleanData** = TRUE) this process may take multiple hours. Additionally, the user may change a number of the optional paramters that handle the distance scaling, overall number of metro-regions to analyze, maximum distance from central business district center to include in the data and whether or not computational progress is reported. 
+
+The analytical process begin by determining if the data will be fully built from the U.S. census raw data. If so, data files for every county in the fifty largest metropolitan areas are downloaded, unzipped, cleaned and written out as a standardized .csv (comma-separated value) file. This data is hosted on the U.S. Census Bureau'S FTP site. 
+
+
+
+Custom functions to handle the data acquisition process were written in R and are found in the *buildHHData.R* and *buildCBSAData.R* files in the repository.  This time consuming (and data storage intensive) process of compilation can be avoided by setting **reBuildData** to FALSE. If either **reBuildData** or **reCleanData** are set to FALSE then the intermediate data sets (raw compiled and/or cleaned) must be downloaded from the [Dataverse Repository](https://dataverse.harvard.edu/dataverse/repHHLoc/).  Two additional files containing city and core-based statistical region (CBSA)  names are also needed for the analysis.  These files are available in .csv form in the code repository. 
 
 After the cleaned data has been compiled and built (or downloaded from Dataverse), the main analysis script then calculates the location quotient distance profiles and plots a variety of different visualizations of the results. Final results, both tabular and visual, are then combined in an RStudio/Knitr file along with the narrative to create the final document (compiled in LaTeX).  The full data provenance is described and hosted on the code repository via a Markdown file.  Also note that the collaborative website [Authorea](https://www.authorea.com/users/18208) (which offers git-based tracking and LaTeX support) was used by the authors to write the first draft of the narrative portion of the report.  
 
@@ -44,13 +62,13 @@ The current peer-review process also presents a considerable hurdle to reproduci
 
 For us the biggest benefit is efficiency.  The first time we do an analysis it usually takes longer than colleagues, but each time after the time savings simply multiply.  One situation where this is particulary helpful is in responding to peer reviewer comments and requests.  Changes to assumptions or sensitiviy tests on parameters can be done in a matter of hours (or minutes), not days or weeks.  This greatly shortens the re-submittal response time.  Related, we constantly find ourselves borrowing old code and re-purposing it, making new analyses easier and faster.  
 
-(Andy) Better organization is another benefit.  No more folders full of data files with version names and dates. No more mystery fields in a dataset. No more starting all over after forgetting what was previously done. My students and their Excel sheets with dozens of tabs and screen clips from SPSS remind me of this benefit every semester. I am slowly incorporating more and more reproducibility into my classes, with the intent of breaking some of these bad habits.
+(Andy) Better organization is another benefit.  No more folders full of data files with version names and dates. No more mystery fields in a dataset. No more starting all over after forgetting what was previously done. My students and their Excel sheets with dozens of tabs and screen clips from SPSS (or other point and click-based statistical software) remind me of this benefit every semester. I am slowly incorporating more and more reproducibility into my classes, with the intent of breaking some of these bad habits.
 
 (Hossein) Another benefit would be for progress general research. Beyond the theoretical approach that can be used to study other metropolitan patterns, functions that we built in this research can be applied to facilitate other forms of research using census data. Researchers can adapt these functions to address other purposes. In an ideal scientific world where all research is reproducible, research will be more efficient because of the code that can be shared, re-used, or adapted for research or non-research purposes.
 
 ##### Key tools
 
-The RStudio IDE and their related Shiny Apps (interactive web applications) have been a huge help in our reproducible research.  If you are an R programmer and want to share your visualizations with non-programmers, we highly recommend these tools from RStudio. 
+The RStudio integrated development enviroment (IDE) and their related Shiny Apps (interactive web applications) have been a huge help in our reproducible research.  If you are an R programmer and want to share your visualizations with non-programmers, we highly recommend these tools from RStudio. Using the IDE allows for easier navigation between multiple scripts, reviewing a history of plots and offering a view of all objects in the current computing environment.  
 
 ##### General questions about reproducibility
 
