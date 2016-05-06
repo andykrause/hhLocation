@@ -41,6 +41,8 @@
   source(paste0(codeDir, '/buildHHData.R'))
   source(paste0(codeDir, '/buildCBSAData.R'))
   source(paste0(codeDir, '/hhLocFunctions.R'))
+  source(paste0(codeDir, '/hhPred.R'))
+  
 
 ##########################################################################################
 ### Loading Data -------------------------------------------------------------------------
@@ -269,3 +271,8 @@
   jpeg(paste0(figurePath, "/overlapLM.jpg"), res=400, width=6500, height=3500)
     overlap2    
   dev.off(which=dev.cur()) 
+  
+###
+  
+pred.res <- hhPrediction(xData, 'All')
+
