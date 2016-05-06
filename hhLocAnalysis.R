@@ -19,8 +19,8 @@
  ## Set parameters
 
   # Required
-  reBuildData <- TRUE
-  reCleanData <- TRUE
+  reBuildData <- FALSE
+  reCleanData <- FALSE
   
   # Optional 
   reScaleDists <- TRUE
@@ -30,8 +30,8 @@
 
  ## Set patha
 
-  dataDir <- 'd:/data/usa'
-  codeDir <- 'D:/Code/R/research/hhLocation'
+  dataDir <- 'c:/data/usa'
+  codeDir <- 'c:/Code/research/hhLocation'
   rawDataFile <- 'c:/temp/hhdata.csv'       # where raw file is located data file
   cleanDataFile <- 'c:/temp/cleandata.csv'   # where to store clean data file
   figurePath <- 'c:/Dropbox/Research/PopDistPaper2/graphs'
@@ -181,7 +181,7 @@
  ## Build data and plots
 
   allData <- buildLQData(xData, metroName='All', logScale=5/9, smoothLines=FALSE)
-  allPlot <- buildAgeLQPlot(allData$plotData, title='All Metros', colorByAge=F,
+  allPlot <- buildAgeLQPlot(allData$plotData, title='50 Largest Metros', colorByAge=F,
                           addPOINT=TRUE, addS=TRUE, addLM=TRUE)
 
  ## Export Plots
@@ -233,7 +233,7 @@
 
   # Plot 
   jpeg(paste0(figurePath, "/Age75_84.jpg"), res=400, width=2500, height=3500)
-  citySparkLines(age75Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
+  citySparkLines(age75Data, ncol=3, textSize=6, lineWidth=.5, lineColor='navy',
                plotTitle = 'Households Ages 75 - 84')
   dev.off(which=dev.cur())
 
@@ -245,7 +245,7 @@
 
   # Plot 
   jpeg(paste0(figurePath, "/Age85+.jpg"), res=400, width=2500, height=3500)
-    citySparkLines(age85Data, ncol=3, textSize=6, lineWidth=1.3, lineColor='navy',
+    citySparkLines(age85Data, ncol=3, textSize=6, lineWidth=.5, lineColor='navy',
                plotTitle = 'Households Ages 85+')
   dev.off(which=dev.cur())
 

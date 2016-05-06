@@ -213,10 +213,15 @@ citySparkLines <- function(ageObj,            # Age specific object from StripAg
   blankPlot <- ggplot(c4, aes(x=X,y=Y)) + geom_point(color='white')
   
   ## Add Lines
+  all.alphas <- lapply(ageObj, function(x) x$y/2)
   
   for(i in 1: length(ageObj)){
+    alphaX <- all.alphas[[i]]
+    alphaX <- ifelse(alphaX > 1, 1, alphaX)
+    alphaX <- ifelse(alphaX < .2, .2, alphaX)
+    
     blankPlot <-  blankPlot + geom_line(data=xyLocated[[i]], aes(x=x, y=y), size=lineWidth,
-                                        color=lineColor)  
+                                        color=lineColor, alpha=alphaX)  
   }
   
   ## Add City Names
