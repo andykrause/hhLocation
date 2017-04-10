@@ -14,7 +14,7 @@ This document explains the process for reproducing the data and analysis describ
 
 3. Execute the **hhLocAnalysis.R** script.  Note:  this may take a few hours as the raw data is downloaded the first time you run the script.
 
-NOTE: Data at two intermediate steps may be downloaded from a Dataverse Repository at: [doi://10.7910/DVN/C9KPZA](doi://10.7910/DVN/C9KPZA).  This allows the user to skip the very lengthly and data storage heavy data compilation and initial cleaning and compiling steps (if so desired).  The two intermediate datasets are described below.
+NOTE: Data at two intermediate steps may be downloaded from a Dataverse Repository at: [http://dx.doi.org/10.7910/DVN/C9KPZA](http://dx.doi.org/10.7910/DVN/C9KPZA).  This allows the user to skip the very lengthly and data storage heavy data compilation and initial cleaning and compiling steps (if so desired).  The two intermediate datasets are described below.
 
 ### Downloading Code and Data
 
